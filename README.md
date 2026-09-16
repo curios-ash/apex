@@ -40,15 +40,67 @@ back to a deterministic mock provider.
 
 ```bash
 npm run dev                                  # terminal 1
-npm run db:seed                              # terminal 2, once
+npm run db:seed                              # terminal 2, once — demo property, 8% PM agreement, budgets
 npm run inbound:demo                         # posts a sample inbound email w/ attachment
-node scripts/e2e-inbound.mjs                 # full e2e assertion against the running server
+node scripts/e2e-inbound.mjs                 # ingestion e2e assertions against the running server
+node scripts/e2e-reconcile.mjs               # reconciliation e2e: ingest -> verify -> exceptions
 ```
 
 Then open the internal pages:
 
 - **`/upload`** — upload statements/invoices directly; table of recent documents with classification status.
-- **`/verify`** — low-confidence extractions with the source document linked; approve, correct, or reject. Every decision writes an `audit_log` row.
+- **`/verify`** — low-confidence extractions with the source document linked; approve, correct, or reject. Every decision writes an `audit_log` row. Approving a statement runs reconciliation automatically.
+- **`/exceptions`** — deterministic findings with dollar impacts and evidence links. Confirm adds the dollars to the impact ledger; dismiss closes the finding. Both write `audit_log` rows.
+- **`/review`** — monthly Owner Review per property: budget vs. actual, exceptions with evidence, and an LLM narrative that cites exception IDs and may only use engine-computed figures.
+- **`/ledger`** — the impact ledger: cumulative confirmed dollars per property and in total.
+- **`/budget`** — manual monthly budget per property and category (the setup wizard is R1).
+
+## Reconciliation engine
+
+`src/reconcile/` is pure TypeScript — no LLM, no I/O. It matches transactions to
+budget lines by property + category + month, computes variances, and runs the
+rule set (`reconcile-v1`); each rule emits `{severity, dollar_impact, evidence[],
+recommended_action}`:
+
+| Rule | Fires when | Dollar impact |
+|---|---|---|
+| `fee_drift_v1` | mgmt fee charged > agreement % of collected income (tolerance: $1 + 1%) | the overcharge |
+| `duplicate_charge_v1` | same normalized description + amount twice within 7 days | the later charge |
+| `repeat_repair_v1` | ≥3 repair/maintenance charges in 90 days | total spend in window |
+| `insurance_tax_jump_v1` | insurance/tax jumps > max($25, 20%) over the property's baseline | the excess |
+| `vacancy_vs_plan_v1` | collected rent < 95% of the rent budget | the shortfall |
+| `work_order_aging_v1` | same work-order ref billed across > 30 days | charges after the first |
+
+Conventions that matter:
+
+- **One statement source per property-month.** PM statements win when present, bank statements otherwise, manual rows always included — so a bank + PM statement covering the same month never double-count.
+- **Owner draws are transfers, not expenses** — the engine excludes them from actuals and rules.
+- **Budget lines store magnitudes** (positive cents); the sign convention comes from the category group (income vs expense).
+- **Idempotent runs.** Transactions materialize from extractions under stable external ids (with cross-document dedupe for the same statement forwarded twice); exceptions upsert by fingerprint — open rows refresh, confirmed/dismissed rows are never touched, and findings that stop reproducing auto-resolve.
+
+`src/lib/reconcile/run.ts` is the DB binding. It runs automatically when an
+extraction clears the bar (auto-pass or verify approval) and after budget
+edits; `POST /api/reconcile` (`{"month": "yyyy-mm-01"}` optional) re-runs it
+manually.
+
+## Monthly Owner Review
+
+`generateMonthlyReview` (`src/lib/review/generate.ts`) refreshes
+reconciliation, builds a figures payload **entirely from engine outputs**
+(actual lines, exceptions, budget, confirmed ledger total), and asks the
+narrative LLM (`review-narrative-v1`) to explain it. The LLM never computes
+numbers: `findUngroundedNumbers` checks every `$` amount and percentage in
+the output against the figures payload, and any offender swaps in the
+deterministic template (`used_fallback` on the `monthly_reviews` row). With
+no API key set, the mock provider emits that template directly. Narratives
+cite exceptions by short id (first 8 chars) and are stored with the exact
+figures snapshot they were grounded in.
+
+**Cron:** `vercel.json` registers `GET /api/cron/monthly-review` at
+`0 14 1 * *` (morning of the 1st, US time) — reconciles the month that just
+ended and generates reviews for every property with activity, in every
+workspace. Set `CRON_SECRET` so Vercel's bearer token is required. A manual
+**Generate review** button on `/review` covers R0.
 
 ## Inbound email (provider setup)
 
@@ -103,22 +155,32 @@ src/
     (internal)/                # internal R0 tooling (pre-auth)
       upload/                  #   /upload — document upload + recent documents
       verify/                  #   /verify — low-confidence extraction queue
+      exceptions/              #   /exceptions — findings, confirm/dismiss
+      review/                  #   /review — monthly Owner Review + narrative
+      ledger/                  #   /ledger — confirmed impact dollars
+      budget/                  #   /budget — manual budget entry
     api/documents/             #   POST upload, GET [id]/file (source download)
     api/inbound-email/         #   POST Resend/Postmark-style webhook
+    api/reconcile/             #   POST manual reconciliation trigger
+    api/cron/monthly-review/   #   GET Vercel cron: reconcile + generate reviews
   components/                  # shadcn/ui primitives + WaitlistForm
   finance/                     # deterministic finance engine (pure TS, no LLM, no I/O)
+  reconcile/                   # reconciliation engine (pure TS): matching, variances, rules
   lib/
-    db/schema.ts               # canonical model: 23 workspace-scoped tables + waitlist
-    llm/                       # provider selection, mock provider, Zod schemas, logging
+    db/schema.ts               # canonical model: 24 workspace-scoped tables + waitlist
+    llm/                       # provider selection, mock provider, Zod schemas, narrative, logging
     ingest/                    # store → classify → extract pipeline
+    reconcile/run.ts           # engine DB binding (materialize, upsert, auto-resolve)
+    review/generate.ts         # Owner Review figures builder + narrative orchestration
     storage.ts                 # Vercel Blob / local-disk file storage
     inbound-email.ts           # webhook payload normalization + alias parsing
     workspace.ts               # pre-auth active-workspace resolution
     audit.ts                   # audit_log writer
-fixtures/                      # synthetic statements (tests + dev script)
-scripts/                       # seed-demo, dev-inbound-email, e2e-inbound (.mjs, zero deps)
+fixtures/                      # synthetic statements (tests + dev scripts)
+scripts/                       # seed-demo, dev-inbound-email, e2e-inbound, e2e-reconcile (.mjs)
 drizzle/                       # generated SQL migrations
 docker-compose.yml             # local Postgres
+vercel.json                    # cron: monthly review kickoff
 ```
 
 ### Conventions that matter
@@ -158,4 +220,4 @@ Everything above runs with zero cloud accounts. Do these when we're ready for a 
 
 ## What intentionally isn't here yet
 
-Auth enforcement (schema-ready only — internal pages operate on the active workspace, see `src/lib/workspace.ts`), PDF text extraction (binary documents are classified by filename/context and land in `/verify` low-confidence until the real provider or a PDF parser handles them), durable job execution (pipeline runs inline in the request; Vercel Workflow replaces that in R1), reconciliation/exceptions engines, approval queue UI, billing. See the master plan for the 26-week sequence.
+Auth enforcement (schema-ready only — internal pages operate on the active workspace, see `src/lib/workspace.ts`), PDF text extraction (binary documents are classified by filename/context and land in `/verify` low-confidence until the real provider or a PDF parser handles them), durable job execution (pipeline runs inline in the request; Vercel Workflow replaces that in R1), the budget setup wizard (R1 — `/budget` is manual entry), approval queue UI for Coordinator drafts, billing. See the master plan for the 26-week sequence.

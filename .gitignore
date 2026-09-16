@@ -46,3 +46,6 @@ next-env.d.ts
 
 # agent tooling scratch
 /agent-tools/
+
+# playwright mcp scratch
+.playwright-mcp/

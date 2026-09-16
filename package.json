@@ -17,7 +17,8 @@
     "db:down": "docker compose down",
     "db:seed": "node scripts/seed-demo.mjs",
     "inbound:demo": "node scripts/dev-inbound-email.mjs",
-    "e2e:inbound": "node scripts/e2e-inbound.mjs"
+    "e2e:inbound": "node scripts/e2e-inbound.mjs",
+    "e2e:reconcile": "node scripts/e2e-reconcile.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.54",
