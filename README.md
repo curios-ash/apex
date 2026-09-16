@@ -31,6 +31,13 @@ npm run build        # production build
 npm run lint         # eslint
 ```
 
+To use the app as a signed-in user (workspace switching, onboarding, billing),
+enable the dev auth provider first — see "Auth" below:
+
+```bash
+APEX_DEV_AUTH_ENABLED=true npm run dev   # or npm start after npm run build
+```
+
 Useful DB extras: `npm run db:studio` (Drizzle Studio), `npm run db:generate` (new migration after editing `src/lib/db/schema.ts`), `npm run db:down`.
 
 ### Try the ingestion loop locally
@@ -46,7 +53,13 @@ node scripts/e2e-inbound.mjs                 # ingestion e2e assertions against 
 node scripts/e2e-reconcile.mjs               # reconciliation e2e: ingest -> verify -> exceptions
 node scripts/e2e-audit.mjs                   # free audit tool e2e: flags, no persistence, rate limit
 node scripts/e2e-actions.mjs                 # approval queue e2e: obligations, reminder cron, activity log
+node scripts/e2e-onboarding.mjs              # self-serve e2e: sign-in gating, mock billing, signed webhook events
 ```
+
+`e2e-onboarding.mjs` expects two servers (see its header comment): one with
+`APEX_DEV_AUTH_ENABLED=true` and no Stripe vars, one with `STRIPE_ENABLED=true`
+plus test price ids and a webhook secret. It signs webhook payloads itself, so
+no Stripe account is needed.
 
 Then open the internal pages:
 
@@ -60,6 +73,9 @@ Then open the internal pages:
 - **`/budget`** — manual monthly budget per property and category (the setup wizard is R1).
 - **`/dossiers`** — the underwriter: versioned pro formas from listing PDFs, pasted text, or manual inputs, with sourced assumptions, a configurable downside case, and a gap-driven diligence checklist.
 - **`/activity`** — the audit log viewer: every state change in the workspace, newest first, filterable by action and entity type. (Named `/activity` because `/audit` is the public free tool.)
+- **`/onboarding`** — the self-serve setup wizard: workspace → first property (address, units, purchase price, loan basics) → PM agreement → budget wizard, landing on the property's review page. Every step is skippable, and revisiting a step edits the existing rows.
+- **`/billing`** — plan management. With `STRIPE_ENABLED` off it's a mock: the real plan catalog and current-plan state from the DB, with a dev-only switcher. With the flag on it's real Checkout + the Stripe customer portal.
+- **`/sign-in`** — dev-mode sign-in (email + workspace selector, no password). Only exists with `APEX_DEV_AUTH_ENABLED` set; see "Auth" below.
 
 And the public free tool on the marketing site:
 - **`/audit`** — the PM Statement Audit. No signup: upload one owner statement (PDF or text) + your management fee %, get fee drift / duplicate charges / unexplained fees / aging work orders with a total dollar figure. Anonymous uploads are processed in memory and never persisted; IP rate-limited.
@@ -170,6 +186,99 @@ thresholds — one reminder per obligation per threshold, idempotent across
 re-runs (a rejected reminder is not re-drafted). A **Check for due
 reminders** button on `/calendar` runs the same path manually.
 
+## Auth: dev sign-in now, Clerk when provisioned
+
+`src/lib/auth/` is the single integration point for identity. Every page and
+action resolves the caller through `getSession()`, which dispatches to a
+provider: **Clerk** once its keys exist (the production choice — stubbed in
+`src/lib/auth/clerk.ts` with the exact wiring points), otherwise the **dev
+provider** when `APEX_DEV_AUTH_ENABLED=true`.
+
+The dev provider is how the app is usable end-to-end today: `/sign-in` takes
+an email and a workspace (no password), sets an HMAC-signed httpOnly cookie
+(`apex_dev_session`, 30 days), and every internal page becomes
+session-aware — the header shows the signed-in email and workspace with a
+sign-out button, plus an amber DEV AUTH banner so nobody mistakes it for
+production. With no session (or the flag off), the internal pages fall back
+to the pre-auth workspace resolution (`APEX_WORKSPACE_SLUG` / oldest
+workspace), so webhooks, crons, and the older e2e scripts are unaffected.
+`/sign-in` and workspace creation 404 when the flag is off. Set
+`APEX_DEV_AUTH_SECRET` to override the well-known dev signing secret.
+
+One login per workspace for now: `users.email` is globally unique and there
+is no memberships table yet, so a second workspace means a second email.
+
+## Onboarding
+
+`/onboarding` is the self-serve path into the product (R1): **workspace →
+property → PM agreement → budget → the property's review page.** Every step
+is skippable ("Skip for now") and re-runnable — each step prefills from the
+database and updates in place, so onboarding doubles as the edit surface
+until dedicated settings pages exist.
+
+- **Property** captures address, type, unit count and per-unit rent, purchase
+  price/date, and optional loan basics. The monthly mortgage payment is
+  computed by the deterministic finance engine (`finance-v1` amortization),
+  never entered by hand.
+- **PM agreement** captures the manager, fee % (basis points), renewal date,
+  and leasing fee. Saving re-runs reconciliation so fee-drift findings match
+  the confirmed terms.
+- **Budget wizard** offers two deterministic starting points, both editable
+  before saving: *from the purchase model* (rent from unit market rents, mgmt
+  fee computed from the agreement %, expenses spread from the property's
+  newest dossier when one exists) or *from 3 months of history* (per-category
+  averages of `actual_lines` over the last three full months, missing months
+  counting as zero). Saving writes the lines to the current month plus the
+  next 11; every month stays editable on `/budget`.
+
+The pure logic (slugify, month math, both suggestion paths) lives in
+`src/onboarding/` with unit tests; the server actions are in
+`src/app/(internal)/onboarding/actions.ts`.
+
+## Billing (Stripe behind a flag)
+
+The plan catalog is data in `src/lib/billing/plans.ts` (master plan Part 4):
+Free $0 · Owner $19/mo + $9/door · Portfolio $79/mo including 6 doors, then
+$7/door. Price math is deterministic and unit-tested.
+
+- **`STRIPE_ENABLED` unset/off (default): mock mode.** `/billing` shows the
+  real catalog and the workspace's current plan from the DB, and a dev-only
+  switcher writes `plan` / `subscription_status` / `billable_doors` directly
+  (audit-logged as `billing.plan_mock_set`). Dev and tests never need Stripe
+  keys, and `POST /api/billing/webhook` returns 404.
+- **`STRIPE_ENABLED=true`: live mode.** Plan cards create real Checkout
+  sessions (base price + per-door price at the workspace's door count) and
+  the portal button opens the Stripe customer portal. The webhook verifies
+  Stripe's HMAC signature and syncs the workspace from
+  `customer.subscription.*` events.
+
+There is deliberately no `stripe` SDK dependency: Checkout/portal creation
+are two form-encoded POSTs and webhook verification is Stripe's documented
+HMAC-SHA256 scheme (`src/lib/billing/stripe.ts`, ~100 lines, unit-tested).
+
+### Stripe setup (when Ashwin turns it on)
+
+1. **Products and prices** (Stripe dashboard → Products, or the CLI). Create
+   one product per plan with two prices each, all monthly recurring USD:
+   - Owner: base **$19/mo** (flat) + door **$9/mo** (per-unit).
+   - Portfolio: base **$79/mo** (flat, includes 6 doors) + door **$7/mo**
+     (per-unit; Checkout sets its quantity to doors beyond 6).
+2. **Env vars** (`.env` locally, Vercel env for preview/prod):
+   `STRIPE_ENABLED=true`, `STRIPE_SECRET_KEY` (`sk_test_…`/`sk_live_…`),
+   `STRIPE_WEBHOOK_SECRET` (from step 3), and the four price ids:
+   `STRIPE_PRICE_OWNER_BASE`, `STRIPE_PRICE_OWNER_DOOR`,
+   `STRIPE_PRICE_PORTFOLIO_BASE`, `STRIPE_PRICE_PORTFOLIO_DOOR`.
+3. **Webhook:** Stripe dashboard → Developers → Webhooks → add endpoint
+   `https://<host>/api/billing/webhook` subscribing to
+   `checkout.session.completed`, `customer.subscription.created`,
+   `customer.subscription.updated`, `customer.subscription.deleted`. Copy the
+   endpoint's signing secret into `STRIPE_WEBHOOK_SECRET`. Locally, use the
+   CLI: `stripe listen --forward-to localhost:3000/api/billing/webhook`.
+4. **Test it:** `stripe trigger customer.subscription.updated` after a
+   Checkout run, or replay the handcrafted signed-event flow in
+   `scripts/e2e-onboarding.mjs` (it signs payloads itself — no Stripe account
+   needed).
+
 ## Inbound email (provider setup)
 
 Each workspace gets an alias `<slug>@in.<domain>` (the demo workspace is
@@ -220,7 +329,8 @@ sha256) are detected and return the existing document.
 src/
   app/
     page.tsx + api/waitlist/   # landing page + waitlist capture
-    (internal)/                # internal R0 tooling (pre-auth)
+    sign-in/                   # /sign-in — dev-mode sign-in (APEX_DEV_AUTH_ENABLED only)
+    (internal)/                # internal R0 tooling (session-aware)
       upload/                  #   /upload — document upload + recent documents
       verify/                  #   /verify — low-confidence extraction queue
       exceptions/              #   /exceptions — findings, confirm/dismiss
@@ -231,12 +341,15 @@ src/
       ledger/                  #   /ledger — confirmed impact dollars
       budget/                  #   /budget — manual budget entry
       dossiers/                #   /dossiers — underwriter: list, new (text/PDF/manual), [id] detail
+      onboarding/              #   /onboarding — workspace -> property -> PM agreement -> budget wizard
+      billing/                 #   /billing — plans, mock switcher or real Checkout/portal
     api/documents/             #   POST upload, GET [id]/file (source download)
     api/inbound-email/         #   POST Resend/Postmark-style webhook
     api/reconcile/             #   POST manual reconciliation trigger
     api/cron/monthly-review/   #   GET Vercel cron: reconcile + generate reviews
     api/cron/renewal-reminders/#   GET Vercel cron: draft 30/14/7-day reminder actions
     api/audit/                 #   POST anonymous PM statement audit (rate-limited, no persistence)
+    api/billing/webhook/       #   POST Stripe webhook (signed, STRIPE_ENABLED only)
     audit/                     #   /audit — free tool page (marketing site)
     share/dossiers/[token]/    #   public read-only dossier page
   components/                  # shadcn/ui primitives + WaitlistForm
@@ -245,7 +358,10 @@ src/
   dossier/                     # underwriter core (pure TS): assumptions -> DealInputs, downside, checklist
   audit/                       # statement audit rules (pure TS, anonymous tool)
   coordinator/                 # Coordinator core (pure TS): draft templates, obligations, reminders, mailto
+  onboarding/                  # onboarding core (pure TS): slugify, month math, budget suggestions
   lib/
+    auth/                      # session contract + dev cookie provider + Clerk stub
+    billing/                   # plan catalog, minimal Stripe client, webhook event mapping
     db/schema.ts               # canonical model: 24 workspace-scoped tables + waitlist
     llm/                       # provider selection, mock provider, Zod schemas, narrative, drafter, logging
     ingest/                    # store → classify → extract pipeline
@@ -258,10 +374,10 @@ src/
     pdf.ts                     # pdf.js text extraction (line reconstruction by Y-coordinate)
     rate-limit.ts              # in-memory fixed-window limiter for public endpoints
     inbound-email.ts           # webhook payload normalization + alias parsing
-    workspace.ts               # pre-auth active-workspace resolution
+    workspace.ts               # session-aware active-workspace resolution
     audit.ts                   # audit_log writer
 fixtures/                      # synthetic statements (tests + dev scripts)
-scripts/                       # seed-demo, dev-inbound-email, e2e-inbound/reconcile/audit/actions (.mjs)
+scripts/                       # seed-demo, dev-inbound-email, e2e-inbound/reconcile/audit/actions/onboarding (.mjs)
 drizzle/                       # generated SQL migrations
 docker-compose.yml             # local Postgres
 vercel.json                    # crons: monthly review kickoff, renewal reminders
@@ -290,10 +406,22 @@ Everything above runs with zero cloud accounts. Do these when we're ready for a 
 
 **Recommendation: Clerk.** Apex sells to individual landlords, not enterprises — we need magic-link + Google sign-in and low-friction UX, not SAML/SSO. Clerk's Next.js App Router integration is the fastest to ship, its free tier (10k MAU) covers the beta, and its prebuilt components match our shadcn setup. WorkOS becomes interesting only if we later sell into PM companies or funds that demand SSO; switching cost is contained because the schema keeps `users.external_auth_id` provider-agnostic.
 
+The app already speaks the session contract (`src/lib/auth/types.ts`); the
+dev provider proves the flow. To go live on Clerk:
+
 1. Vercel dashboard → **Marketplace** → **Clerk** → install, link to the project (injects `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY`).
 2. In the Clerk dashboard: enable **Email magic link** and **Google** only (no password, no Gmail scopes).
-3. `npm install @clerk/nextjs`, wrap the app in `ClerkProvider`, and map `clerkUserId` → `users.external_auth_id` on first sign-in (create workspace + user row in the same transaction).
-4. WorkOS alternative: same flow via the WorkOS AuthKit marketplace listing if we ever need SAML.
+3. `npm install @clerk/nextjs`, wrap `src/app/layout.tsx` in `ClerkProvider`.
+4. Implement `getClerkSession()` in `src/lib/auth/clerk.ts` (the four
+   integration points are listed in that file): Clerk's `auth()` → map the
+   Clerk user id to `users.external_auth_id` → join the workspace through
+   `users`. On a first-seen Clerk user, create workspace + user row in one
+   transaction (same shape as `devSignIn` in `src/app/sign-in/actions.ts`).
+5. Replace `/sign-in` with Clerk's `<SignIn />` (or redirect to the Clerk
+   hosted page), then delete the dev provider: `src/lib/auth/dev.ts`, the
+   sign-in route, and `APEX_DEV_AUTH_ENABLED`. `getActiveWorkspace()` needs
+   no changes — it already consumes `getSession()`.
+6. WorkOS alternative: same flow via the WorkOS AuthKit marketplace listing if we ever need SAML.
 
 ### 3. Vercel Blob (statement/PDF storage)
 
@@ -304,4 +432,4 @@ Everything above runs with zero cloud accounts. Do these when we're ready for a 
 
 ## What intentionally isn't here yet
 
-Auth enforcement (schema-ready only — internal pages operate on the active workspace, see `src/lib/workspace.ts`), OCR for scanned PDFs (text-layer PDFs extract locally via pdf.js; scans fall back to the real LLM provider's file input or the verify queue), durable job execution (pipeline runs inline in the request; Vercel Workflow replaces that in R1), the budget setup wizard (R1 — `/budget` is manual entry), SMTP sending for approved drafts (v1.1 — approval currently unlocks mailto/copy only), billing. See the master plan for the 26-week sequence.
+Production auth (Clerk is provisioned and wired per the steps above; until then the dev provider covers it), multi-workspace membership (one login per workspace), OCR for scanned PDFs (text-layer PDFs extract locally via pdf.js; scans fall back to the real LLM provider's file input or the verify queue), durable job execution (pipeline runs inline in the request; Vercel Workflow replaces that in R1), SMTP sending for approved drafts (v1.1 — approval currently unlocks mailto/copy only), and plan enforcement (billing state is recorded but gates nothing yet — dossier/audit caps land with the public launch). See the master plan for the 26-week sequence.
