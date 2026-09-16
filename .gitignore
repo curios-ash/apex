@@ -43,3 +43,6 @@ next-env.d.ts
 
 # local document storage fallback (BLOB_READ_WRITE_TOKEN unset)
 /.data/
+
+# agent tooling scratch
+/agent-tools/
