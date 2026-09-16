@@ -7,6 +7,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { extractions } from "@/lib/db/schema";
 import { overallConfidence, schemaForVersion } from "@/lib/llm";
+import { runReconciliation } from "@/lib/reconcile/run";
 import { getActiveWorkspace } from "@/lib/workspace";
 
 export interface ExtractionPayload {
@@ -42,7 +43,12 @@ export async function approveExtraction(formData: FormData) {
     targetId: id,
     metadata: { via: "approve", schemaVersion: extraction.schemaVersion },
   });
+  // Verified statements feed reconciliation immediately.
+  await runReconciliation(workspace.id).catch((error) =>
+    console.error("reconciliation after verify failed", error),
+  );
   revalidatePath("/verify");
+  revalidatePath("/exceptions");
 }
 
 export async function rejectExtraction(formData: FormData) {
@@ -150,6 +156,10 @@ export async function correctExtraction(
       changes: changed,
     },
   });
+  await runReconciliation(workspace.id).catch((error) =>
+    console.error("reconciliation after correction failed", error),
+  );
   revalidatePath("/verify");
+  revalidatePath("/exceptions");
   return { ok: true, message: `Saved corrections: ${changed.map((c) => c.field).join(", ")}.` };
 }

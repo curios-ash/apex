@@ -1,0 +1,198 @@
+{
+  "actualLines": [
+    {
+      "amountCents": -24000,
+      "category": "insurance",
+      "month": "2026-04-01",
+      "propertyId": "prop-maple",
+      "source": "pm_statement",
+    },
+    {
+      "amountCents": -14500,
+      "category": "mgmt_fee",
+      "month": "2026-04-01",
+      "propertyId": "prop-maple",
+      "source": "pm_statement",
+    },
+    {
+      "amountCents": 145000,
+      "category": "rent",
+      "month": "2026-04-01",
+      "propertyId": "prop-maple",
+      "source": "pm_statement",
+    },
+    {
+      "amountCents": -62500,
+      "category": "repair",
+      "month": "2026-04-01",
+      "propertyId": "prop-maple",
+      "source": "pm_statement",
+    },
+  ],
+  "exceptions": [
+    {
+      "dollarImpactCents": 2900,
+      "evidence": [
+        {
+          "documentId": "doc-pm-statement-2026-04-maple.txt",
+          "transactionId": "tx-pm-statement-2026-04-maple.txt-2",
+        },
+        {
+          "note": "Agreement with Golden PM: 8.00% of collected income. Charged $145.00; expected $116.00; drift $29.00.",
+        },
+      ],
+      "month": "2026-04-01",
+      "propertyId": "prop-maple",
+      "recommendedAction": "Ask Golden PM to reconcile the management fee against the agreement (8.00% of collected income) and request a credit of $29.00.",
+      "ruleId": "fee_drift_v1",
+      "severity": "warning",
+      "summary": "Management fee $145.00 vs $116.00 expected (8.00% of $1,450.00 collected income)",
+    },
+    {
+      "dollarImpactCents": 100000,
+      "evidence": [
+        {
+          "documentId": "doc-pm-statement-2026-03-maple.txt",
+          "transactionId": "tx-pm-statement-2026-03-maple.txt-4",
+        },
+        {
+          "documentId": "doc-pm-statement-2026-03-maple.txt",
+          "transactionId": "tx-pm-statement-2026-03-maple.txt-5",
+        },
+        {
+          "documentId": "doc-pm-statement-2026-03-maple.txt",
+          "transactionId": "tx-pm-statement-2026-03-maple.txt-6",
+        },
+        {
+          "documentId": "doc-pm-statement-2026-04-maple.txt",
+          "transactionId": "tx-pm-statement-2026-04-maple.txt-3",
+        },
+        {
+          "documentId": "doc-pm-statement-2026-04-maple.txt",
+          "transactionId": "tx-pm-statement-2026-04-maple.txt-4",
+        },
+        {
+          "documentId": "doc-pm-statement-2026-04-maple.txt",
+          "transactionId": "tx-pm-statement-2026-04-maple.txt-5",
+        },
+        {
+          "note": "6 repair transactions between 2026-03-08 and 2026-04-30.",
+        },
+      ],
+      "month": "2026-04-01",
+      "propertyId": "prop-maple",
+      "recommendedAction": "Ask the PM for the work-order history behind these repair charges and whether a single root-cause repair replaces repeated service calls.",
+      "ruleId": "repeat_repair_v1",
+      "severity": "critical",
+      "summary": "6 repair charges in 90 days totaling $1,000.00",
+    },
+    {
+      "dollarImpactCents": 14500,
+      "evidence": [
+        {
+          "documentId": "doc-pm-statement-2026-04-maple.txt",
+          "transactionId": "tx-pm-statement-2026-04-maple.txt-1",
+        },
+        {
+          "note": "Baseline is the average of 1 prior month(s) with insurance charges (2026-03-01).",
+        },
+      ],
+      "month": "2026-04-01",
+      "propertyId": "prop-maple",
+      "recommendedAction": "Ask the PM or carrier why insurance rose $145.00 over the $95.00 baseline; request the renewal or assessment notice.",
+      "ruleId": "insurance_tax_jump_v1",
+      "severity": "critical",
+      "summary": "Insurance jumped to $240.00 vs $95.00 baseline (+153%)",
+    },
+    {
+      "dollarImpactCents": 145000,
+      "evidence": [
+        {
+          "documentId": "doc-pm-statement-2026-04-maple.txt",
+          "transactionId": "tx-pm-statement-2026-04-maple.txt-0",
+        },
+        {
+          "note": "Budgeted rent $2,900.00; collected $1,450.00.",
+        },
+      ],
+      "month": "2026-04-01",
+      "propertyId": "prop-maple",
+      "recommendedAction": "Confirm which units were vacant or delinquent and ask the PM for the leasing plan and expected make-ready date.",
+      "ruleId": "vacancy_vs_plan_v1",
+      "severity": "critical",
+      "summary": "Collected rent $1,450.00 vs $2,900.00 planned ($1,450.00 short, 50%)",
+    },
+    {
+      "dollarImpactCents": 19000,
+      "evidence": [
+        {
+          "documentId": "doc-pm-statement-2026-03-maple.txt",
+          "transactionId": "tx-pm-statement-2026-03-maple.txt-4",
+        },
+        {
+          "documentId": "doc-pm-statement-2026-03-maple.txt",
+          "transactionId": "tx-pm-statement-2026-03-maple.txt-5",
+        },
+        {
+          "documentId": "doc-pm-statement-2026-04-maple.txt",
+          "transactionId": "tx-pm-statement-2026-04-maple.txt-4",
+        },
+      ],
+      "month": "2026-04-01",
+      "propertyId": "prop-maple",
+      "recommendedAction": "Ask the PM for the status of work order WO-2001 — open 35 days — and confirm the later $190.00 in charges are not re-billing.",
+      "ruleId": "work_order_aging_v1",
+      "severity": "warning",
+      "summary": "Work order WO-2001 open 35 days (2026-03-08 → 2026-04-12), $190.00 billed after the first charge",
+    },
+  ],
+  "month": "2026-04-01",
+  "propertyId": "prop-maple",
+  "variances": [
+    {
+      "actualCents": -24000,
+      "budgetCents": 9500,
+      "category": "insurance",
+      "month": "2026-04-01",
+      "propertyId": "prop-maple",
+      "varianceCents": 14500,
+      "variancePct": 1.5263157894736843,
+    },
+    {
+      "actualCents": 0,
+      "budgetCents": 10000,
+      "category": "maintenance",
+      "month": "2026-04-01",
+      "propertyId": "prop-maple",
+      "varianceCents": -10000,
+      "variancePct": -1,
+    },
+    {
+      "actualCents": -14500,
+      "budgetCents": 23200,
+      "category": "mgmt_fee",
+      "month": "2026-04-01",
+      "propertyId": "prop-maple",
+      "varianceCents": -8700,
+      "variancePct": -0.375,
+    },
+    {
+      "actualCents": 145000,
+      "budgetCents": 290000,
+      "category": "rent",
+      "month": "2026-04-01",
+      "propertyId": "prop-maple",
+      "varianceCents": -145000,
+      "variancePct": -0.5,
+    },
+    {
+      "actualCents": -62500,
+      "budgetCents": 20000,
+      "category": "repair",
+      "month": "2026-04-01",
+      "propertyId": "prop-maple",
+      "varianceCents": 42500,
+      "variancePct": 2.125,
+    },
+  ],
+}

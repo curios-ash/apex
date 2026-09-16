@@ -167,7 +167,7 @@ export const obligationTypeEnum = pgEnum("obligation_type", [
   "other",
 ]);
 export const obligationStatusEnum = pgEnum("obligation_status", ["pending", "done", "dismissed"]);
-export const llmCallPurposeEnum = pgEnum("llm_call_purpose", ["classify", "extract"]);
+export const llmCallPurposeEnum = pgEnum("llm_call_purpose", ["classify", "extract", "narrate"]);
 export const llmCallStatusEnum = pgEnum("llm_call_status", ["success", "error"]);
 
 const timestamps = {
@@ -517,8 +517,16 @@ export const exceptions = pgTable(
     propertyId: uuid("property_id").references(() => properties.id, { onDelete: "set null" }),
     // Deterministic rule that fired, e.g. "fee_drift_v1".
     ruleId: text("rule_id").notNull(),
+    // Month (first-of-month date) the finding belongs to; rules that span
+    // periods (e.g. work-order aging) use the last-seen month.
+    month: date("month"),
+    // sha256 of rule + property + month + sorted evidence ids. Re-running
+    // reconciliation upserts open exceptions instead of duplicating them.
+    fingerprint: text("fingerprint").notNull().default(""),
     severity: exceptionSeverityEnum("severity").notNull().default("warning"),
     dollarImpactCents: bigint("dollar_impact_cents", { mode: "number" }).notNull().default(0),
+    // Deterministic one-line finding, e.g. "Management fee $290.00 vs $232.00 expected (8% of collected income)".
+    summary: text("summary").notNull().default(""),
     status: exceptionStatusEnum("status").notNull().default("open"),
     evidence: jsonb("evidence").$type<ExceptionEvidence[]>().notNull().default([]),
     recommendedAction: text("recommended_action"),
@@ -530,6 +538,43 @@ export const exceptions = pgTable(
     index("exceptions_workspace_idx").on(t.workspaceId),
     index("exceptions_property_idx").on(t.propertyId),
     index("exceptions_workspace_status_idx").on(t.workspaceId, t.status),
+    uniqueIndex("exceptions_fingerprint_idx").on(
+      t.workspaceId,
+      t.propertyId,
+      t.ruleId,
+      t.month,
+      t.fingerprint,
+    ),
+  ],
+);
+
+// One generated Owner Review per property per month. `figures` is the exact
+// engine-output snapshot the narrative was grounded in — every number in
+// `narrative` must trace back to it (the LLM never computes numbers).
+export const monthlyReviews = pgTable(
+  "monthly_reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    propertyId: uuid("property_id")
+      .notNull()
+      .references(() => properties.id, { onDelete: "cascade" }),
+    month: date("month").notNull(),
+    narrative: text("narrative").notNull(),
+    figures: jsonb("figures").notNull().default({}),
+    // e.g. "mock-deterministic-v1/review-narrative-v1"
+    generator: text("generator").notNull(),
+    // True when the generated text failed the groundedness check and the
+    // deterministic template was stored instead.
+    usedFallback: boolean("used_fallback").notNull().default(false),
+    generatedBy: uuid("generated_by").references(() => users.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [
+    index("monthly_reviews_workspace_idx").on(t.workspaceId),
+    uniqueIndex("monthly_reviews_unique_idx").on(t.workspaceId, t.propertyId, t.month),
   ],
 );
 

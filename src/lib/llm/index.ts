@@ -48,3 +48,12 @@ export {
   overallConfidence,
   reviewThreshold,
 } from "./confidence";
+export {
+  REVIEW_PROMPT_VERSION,
+  buildTemplateNarrative,
+  findUngroundedNumbers,
+  getNarrativeLlm,
+  resetNarrativeLlm,
+  type NarrativeLlm,
+  type ReviewFigures,
+} from "./narrative";

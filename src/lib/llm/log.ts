@@ -9,8 +9,8 @@ import type { LlmCallMeta } from "./types";
 // Logging must never break ingestion, so failures are swallowed to stderr.
 export async function logLlmCall(params: {
   workspaceId: string;
-  documentId: string | null;
-  purpose: "classify" | "extract";
+  documentId?: string | null;
+  purpose: "classify" | "extract" | "narrate";
   meta: LlmCallMeta;
   output?: unknown;
   error?: string;
@@ -19,7 +19,7 @@ export async function logLlmCall(params: {
   try {
     await db.insert(llmCalls).values({
       workspaceId,
-      documentId,
+      documentId: documentId ?? null,
       purpose,
       provider: meta.provider,
       model: meta.model,

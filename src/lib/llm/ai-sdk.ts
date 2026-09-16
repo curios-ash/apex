@@ -34,8 +34,8 @@ interface ResolvedModel {
   model: LanguageModel;
 }
 
-export function resolveModel(): ResolvedModel | null {
-  const modelId = process.env.APEX_LLM_MODEL ?? "anthropic/claude-sonnet-5";
+export function resolveModelFor(envVar: string, fallbackModelId: string): ResolvedModel | null {
+  const modelId = process.env[envVar] ?? fallbackModelId;
   if (process.env.AI_GATEWAY_API_KEY) {
     return { provider: "gateway", modelId, model: gateway(modelId) };
   }
@@ -44,6 +44,10 @@ export function resolveModel(): ResolvedModel | null {
     return { provider: "anthropic", modelId: directId, model: anthropic(directId) };
   }
   return null;
+}
+
+export function resolveModel(): ResolvedModel | null {
+  return resolveModelFor("APEX_LLM_MODEL", "anthropic/claude-sonnet-5");
 }
 
 function usageTokens(usage: unknown): { input: number | null; output: number | null } {

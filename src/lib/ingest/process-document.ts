@@ -12,6 +12,7 @@ import {
 } from "@/lib/llm";
 import { logLlmCall } from "@/lib/llm/log";
 import type { LlmCallMeta } from "@/lib/llm/types";
+import { runReconciliation } from "@/lib/reconcile/run";
 import { readStoredFile } from "@/lib/storage";
 
 import { extractTextContent } from "./text";
@@ -148,6 +149,14 @@ export async function processDocument(
         periodEnd: fields.periodEnd ?? null,
       })
       .where(eq(documents.id, documentId));
+
+    // Auto-passed extractions feed reconciliation immediately; anything in
+    // the verify queue reconciles after the human decision instead.
+    if (status === "pending") {
+      await runReconciliation(doc.workspaceId).catch((error) =>
+        console.error("reconciliation after ingest failed", error),
+      );
+    }
   } catch (error) {
     console.error(`processDocument ${documentId} failed`, error);
     await markFailed(documentId);

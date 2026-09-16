@@ -1,0 +1,57 @@
+{
+  "actualLines": [
+    {
+      "amountCents": -12750,
+      "category": "mgmt_fee",
+      "month": "2026-03-01",
+      "propertyId": "prop-propertyware",
+      "source": "pm_statement",
+    },
+    {
+      "amountCents": 127500,
+      "category": "rent",
+      "month": "2026-03-01",
+      "propertyId": "prop-propertyware",
+      "source": "pm_statement",
+    },
+    {
+      "amountCents": -21000,
+      "category": "repair",
+      "month": "2026-03-01",
+      "propertyId": "prop-propertyware",
+      "source": "pm_statement",
+    },
+  ],
+  "exceptions": [],
+  "month": "2026-03-01",
+  "propertyId": "prop-propertyware",
+  "variances": [
+    {
+      "actualCents": -12750,
+      "budgetCents": 12750,
+      "category": "mgmt_fee",
+      "month": "2026-03-01",
+      "propertyId": "prop-propertyware",
+      "varianceCents": 0,
+      "variancePct": 0,
+    },
+    {
+      "actualCents": 127500,
+      "budgetCents": 127500,
+      "category": "rent",
+      "month": "2026-03-01",
+      "propertyId": "prop-propertyware",
+      "varianceCents": 0,
+      "variancePct": 0,
+    },
+    {
+      "actualCents": -21000,
+      "budgetCents": 21000,
+      "category": "repair",
+      "month": "2026-03-01",
+      "propertyId": "prop-propertyware",
+      "varianceCents": 0,
+      "variancePct": 0,
+    },
+  ],
+}

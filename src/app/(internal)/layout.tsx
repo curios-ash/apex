@@ -34,6 +34,18 @@ export default async function InternalLayout({ children }: { children: React.Rea
               <Link href="/verify" className="hover:text-stone-900">
                 Verify
               </Link>
+              <Link href="/exceptions" className="hover:text-stone-900">
+                Exceptions
+              </Link>
+              <Link href="/review" className="hover:text-stone-900">
+                Review
+              </Link>
+              <Link href="/ledger" className="hover:text-stone-900">
+                Ledger
+              </Link>
+              <Link href="/budget" className="hover:text-stone-900">
+                Budget
+              </Link>
             </nav>
           </div>
           {workspaceName ? (
