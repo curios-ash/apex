@@ -288,6 +288,7 @@ describe("work_order_aging_v1", () => {
   it("extracts work-order references", () => {
     expect(workOrderRef("Repair - pest control - WO-2001")).toBe("2001");
     expect(workOrderRef("Work order #A-42 plumbing")).toBe("a-42");
+    expect(workOrderRef("HVAC repair work order WO-3001")).toBe("3001");
     expect(workOrderRef("Plain repair")).toBeNull();
   });
 

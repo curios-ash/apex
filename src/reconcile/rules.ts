@@ -320,7 +320,10 @@ const WORK_ORDER_REF = /(?:work\s*order|wo)[\s:#-]*(?:no\.?|number[\s:#-]*)?([a-
 
 export function workOrderRef(description: string): string | null {
   const m = WORK_ORDER_REF.exec(description);
-  return m ? m[1].toLowerCase() : null;
+  // "Work order WO-3001" captures "WO-3001" (the alternation matched the
+  // words "work order"); strip the redundant prefix so the ref is stable
+  // across phrasings ("WO-2001" already captures as "2001").
+  return m ? m[1].toLowerCase().replace(/^wo-/, "") : null;
 }
 
 export function workOrderAgingRule(ctx: RuleContext): RuleException[] {

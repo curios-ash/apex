@@ -78,7 +78,9 @@ function displayValue(spec: FieldSpec, value: AssumptionValue | undefined): stri
   if (spec.kind === "text") return value.valueText ?? "";
   if (value.valueNum === null) return "";
   if (spec.kind === "money") return (value.valueNum / 100).toFixed(0);
-  if (spec.kind === "percent") return (value.valueNum * 100).toString();
+  // Round to 4 decimal places of percent so binary float noise (0.15 * 100 =
+  // 15.000000000000002) doesn't round-trip into a spurious "manual" edit.
+  if (spec.kind === "percent") return String(Math.round(value.valueNum * 100 * 1e4) / 1e4);
   return value.valueNum.toString();
 }
 

@@ -18,7 +18,9 @@ function parsePercent(raw: string): number | null {
   if (cleaned === "") return null;
   const n = Number(cleaned);
   if (!Number.isFinite(n)) return null;
-  return n / 100;
+  // 4 decimal places of percent (6 as a ratio) — enough for bps-level edits,
+  // and keeps the display/parse round-trip stable against float noise.
+  return Math.round(n * 1e4) / 1e6;
 }
 
 function parseCount(raw: string): number | null {

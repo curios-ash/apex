@@ -79,30 +79,6 @@ async function storeAndExtractListing(params: {
       metadata: { source, filename, via: "dossier-intake", storageBackend: storage.backend },
     });
   }
-  const storage = getStorage();
-  const storageKey = await storage.put(buildStorageKey(workspaceId, id, filename), bytes, mimeType);
-
-  await db.insert(documents).values({
-    id,
-    workspaceId,
-    documentType: "listing",
-    source,
-    status: "received",
-    storageKey,
-    originalFilename: filename,
-    mimeType,
-    byteSize: bytes.length,
-    sha256: sha256Hex(bytes),
-  });
-
-  await writeAuditLog({
-    workspaceId,
-    actorType: "system",
-    action: "document.received",
-    targetType: "document",
-    targetId: id,
-    metadata: { source, filename, via: "dossier-intake", storageBackend: storage.backend },
-  });
 
   const text = await extractTextContent(bytes, mimeType, filename);
   const entry = EXTRACTION_SCHEMAS.listing;

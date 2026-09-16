@@ -18,7 +18,8 @@
     "db:seed": "node scripts/seed-demo.mjs",
     "inbound:demo": "node scripts/dev-inbound-email.mjs",
     "e2e:inbound": "node scripts/e2e-inbound.mjs",
-    "e2e:reconcile": "node scripts/e2e-reconcile.mjs"
+    "e2e:reconcile": "node scripts/e2e-reconcile.mjs",
+    "e2e:audit": "node scripts/e2e-audit.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.54",

@@ -44,6 +44,7 @@ npm run db:seed                              # terminal 2, once — demo propert
 npm run inbound:demo                         # posts a sample inbound email w/ attachment
 node scripts/e2e-inbound.mjs                 # ingestion e2e assertions against the running server
 node scripts/e2e-reconcile.mjs               # reconciliation e2e: ingest -> verify -> exceptions
+node scripts/e2e-audit.mjs                   # free audit tool e2e: flags, no persistence, rate limit
 ```
 
 Then open the internal pages:
@@ -54,6 +55,39 @@ Then open the internal pages:
 - **`/review`** — monthly Owner Review per property: budget vs. actual, exceptions with evidence, and an LLM narrative that cites exception IDs and may only use engine-computed figures.
 - **`/ledger`** — the impact ledger: cumulative confirmed dollars per property and in total.
 - **`/budget`** — manual monthly budget per property and category (the setup wizard is R1).
+- **`/dossiers`** — the underwriter: versioned pro formas from listing PDFs, pasted text, or manual inputs, with sourced assumptions, a configurable downside case, and a gap-driven diligence checklist.
+
+And the public free tool on the marketing site:
+- **`/audit`** — the PM Statement Audit. No signup: upload one owner statement (PDF or text) + your management fee %, get fee drift / duplicate charges / unexplained fees / aging work orders with a total dollar figure. Anonymous uploads are processed in memory and never persisted; IP rate-limited.
+
+## Underwriter (dossiers)
+
+`src/dossier/` is pure TypeScript — assumptions in, pro forma out. Every
+number the finance engine consumes is a row in `assumptions` with `source`
+(listing document / manual / default rule), `confidence`, and `version`;
+`src/lib/dossier/run.ts` maps rows to `DealInputs` and stores the computed
+snapshot in `dossiers.payload` (`dossier-v1` shape, `finance-v1` math). The
+LLM only extracts listing fields (`listing-v2`: rent, taxes, HOA, year built,
+occupancy) — it never computes an output.
+
+- **Intake:** paste listing text, upload a listing PDF (text extracted locally via pdf.js), or enter everything manually. Captures are stored as `listing` documents for provenance.
+- **Downside case:** rent −10%, vacancy +5pp, expenses +15% by default; the three parameters are assumptions themselves and editable per dossier.
+- **Versioning:** any edit on the dossier page re-inserts the full assumption set at version N+1 (changed keys become `manual`/`high`) and recomputes the payload.
+- **Checklist:** generated deterministically from the deal's gaps (defaulted taxes/insurance, unverified rent, missing year built, tenant in place) plus financing-risk items from the engine outputs (downside DSCR < 1.20, negative downside cash flow).
+- **Sharing:** `dossiers.share_token` gates a read-only public page at `/share/dossiers/<token>` (64-hex token, noindex, no workspace data). Share/revoke from the dossier page; both write `audit_log` rows.
+
+## Free PM Statement Audit (/audit)
+
+The GTM hook. Anonymous by design: `POST /api/audit` extracts the statement
+lines in memory (LLM extract only — mock provider without a key), runs the
+deterministic rule set in `src/audit/` (`statement-audit-v1`: fee drift vs.
+the entered agreement %, duplicate charges, unexplained fees, work-order
+aging — same thresholds as the reconciliation engine), and returns the
+flagged list with a dollar total. **Nothing is persisted** — no documents,
+extractions, or llm_calls rows — which the page states plainly. Rate-limited
+to 10 audits/hour per IP (in-memory fixed window, `src/lib/rate-limit.ts`).
+The result ends in a "save this to a property record" waitlist CTA
+(`source = "audit-tool"`).
 
 ## Reconciliation engine
 
@@ -159,25 +193,34 @@ src/
       review/                  #   /review — monthly Owner Review + narrative
       ledger/                  #   /ledger — confirmed impact dollars
       budget/                  #   /budget — manual budget entry
+      dossiers/                #   /dossiers — underwriter: list, new (text/PDF/manual), [id] detail
     api/documents/             #   POST upload, GET [id]/file (source download)
     api/inbound-email/         #   POST Resend/Postmark-style webhook
     api/reconcile/             #   POST manual reconciliation trigger
     api/cron/monthly-review/   #   GET Vercel cron: reconcile + generate reviews
+    api/audit/                 #   POST anonymous PM statement audit (rate-limited, no persistence)
+    audit/                     #   /audit — free tool page (marketing site)
+    share/dossiers/[token]/    #   public read-only dossier page
   components/                  # shadcn/ui primitives + WaitlistForm
   finance/                     # deterministic finance engine (pure TS, no LLM, no I/O)
   reconcile/                   # reconciliation engine (pure TS): matching, variances, rules
+  dossier/                     # underwriter core (pure TS): assumptions -> DealInputs, downside, checklist
+  audit/                       # statement audit rules (pure TS, anonymous tool)
   lib/
     db/schema.ts               # canonical model: 24 workspace-scoped tables + waitlist
     llm/                       # provider selection, mock provider, Zod schemas, narrative, logging
     ingest/                    # store → classify → extract pipeline
     reconcile/run.ts           # engine DB binding (materialize, upsert, auto-resolve)
     review/generate.ts         # Owner Review figures builder + narrative orchestration
+    dossier/                   # underwriter DB binding (intake, create/revise/share, load)
     storage.ts                 # Vercel Blob / local-disk file storage
+    pdf.ts                     # pdf.js text extraction (line reconstruction by Y-coordinate)
+    rate-limit.ts              # in-memory fixed-window limiter for public endpoints
     inbound-email.ts           # webhook payload normalization + alias parsing
     workspace.ts               # pre-auth active-workspace resolution
     audit.ts                   # audit_log writer
 fixtures/                      # synthetic statements (tests + dev scripts)
-scripts/                       # seed-demo, dev-inbound-email, e2e-inbound, e2e-reconcile (.mjs)
+scripts/                       # seed-demo, dev-inbound-email, e2e-inbound, e2e-reconcile, e2e-audit (.mjs)
 drizzle/                       # generated SQL migrations
 docker-compose.yml             # local Postgres
 vercel.json                    # cron: monthly review kickoff
@@ -220,4 +263,4 @@ Everything above runs with zero cloud accounts. Do these when we're ready for a 
 
 ## What intentionally isn't here yet
 
-Auth enforcement (schema-ready only — internal pages operate on the active workspace, see `src/lib/workspace.ts`), PDF text extraction (binary documents are classified by filename/context and land in `/verify` low-confidence until the real provider or a PDF parser handles them), durable job execution (pipeline runs inline in the request; Vercel Workflow replaces that in R1), the budget setup wizard (R1 — `/budget` is manual entry), approval queue UI for Coordinator drafts, billing. See the master plan for the 26-week sequence.
+Auth enforcement (schema-ready only — internal pages operate on the active workspace, see `src/lib/workspace.ts`), OCR for scanned PDFs (text-layer PDFs extract locally via pdf.js; scans fall back to the real LLM provider's file input or the verify queue), durable job execution (pipeline runs inline in the request; Vercel Workflow replaces that in R1), the budget setup wizard (R1 — `/budget` is manual entry), approval queue UI for Coordinator drafts, billing. See the master plan for the 26-week sequence.
