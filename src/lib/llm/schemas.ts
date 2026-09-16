@@ -104,14 +104,32 @@ export const listingSchema = z.object({
   sqft: z.number().int().nullable(),
 });
 
+// v2 adds the underwriting fields a for-sale listing may state: current or
+// market rent, annual property taxes, monthly HOA dues, year built, and
+// whether the property is tenant-occupied. All nullable — null means the
+// listing does not say, never a guess.
+export const listingV2Schema = listingSchema.extend({
+  rentCents: cents,
+  propertyTaxAnnualCents: cents,
+  hoaMonthlyCents: cents,
+  yearBuilt: z.number().int().nullable(),
+  tenantOccupied: z.boolean().nullable(),
+});
+
 export const EXTRACTION_SCHEMAS = {
   pm_statement: { version: "pm-statement-v1", schema: pmStatementSchema },
   bank_statement: { version: "bank-statement-v1", schema: bankStatementSchema },
   invoice: { version: "invoice-v1", schema: invoiceSchema },
   lease: { version: "lease-v1", schema: leaseSchema },
   insurance: { version: "insurance-v1", schema: insuranceSchema },
-  listing: { version: "listing-v1", schema: listingSchema },
+  listing: { version: "listing-v2", schema: listingV2Schema },
 } as const;
+
+// Superseded schema versions, kept so older extractions in the verify queue
+// still resolve for correction.
+const LEGACY_EXTRACTION_SCHEMAS: Record<string, { kind: ExtractableKind; schema: z.ZodType }> = {
+  "listing-v1": { kind: "listing", schema: listingSchema },
+};
 
 export type ExtractableKind = keyof typeof EXTRACTION_SCHEMAS;
 
@@ -121,7 +139,7 @@ export function schemaForVersion(
   for (const [kind, entry] of Object.entries(EXTRACTION_SCHEMAS)) {
     if (entry.version === version) return { kind: kind as ExtractableKind, schema: entry.schema };
   }
-  return null;
+  return LEGACY_EXTRACTION_SCHEMAS[version] ?? null;
 }
 
 // documents.document_type uses slightly different names for two kinds.

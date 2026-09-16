@@ -25,10 +25,14 @@ export async function POST(request: Request) {
     );
   }
 
+  const SOURCES = new Set(["landing", "audit-tool", "shared-dossier"]);
+  const rawSource = (body as { source?: unknown })?.source;
+  const source = typeof rawSource === "string" && SOURCES.has(rawSource) ? rawSource : "landing";
+
   try {
     const inserted = await db
       .insert(waitlist)
-      .values({ email, source: "landing" })
+      .values({ email, source })
       .onConflictDoNothing({ target: waitlist.email })
       .returning({ id: waitlist.id });
 

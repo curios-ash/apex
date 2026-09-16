@@ -22,3 +22,15 @@ export function formatDateTime(value: Date | string | null | undefined): string 
     minute: "2-digit",
   });
 }
+
+// 0.065 -> "6.50%"
+export function formatPercent(ratio: number | null | undefined, digits = 2): string {
+  if (ratio === null || ratio === undefined || !Number.isFinite(ratio)) return "—";
+  return `${(ratio * 100).toFixed(digits)}%`;
+}
+
+// 1.34 -> "1.34" (for DSCR and other multiples)
+export function formatMultiple(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  return value.toFixed(2);
+}

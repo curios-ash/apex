@@ -100,6 +100,12 @@ export default function Home() {
           </a>
           <nav className="flex items-center gap-6">
             <a
+              href="/audit"
+              className="hidden text-sm font-medium text-stone-600 hover:text-stone-900 sm:block"
+            >
+              Free statement audit
+            </a>
+            <a
               href="#how-it-works"
               className="hidden text-sm font-medium text-stone-600 hover:text-stone-900 sm:block"
             >
@@ -193,6 +199,31 @@ export default function Home() {
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+        <section className="border-b border-stone-200 bg-stone-900 text-stone-50">
+          <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-8 px-4 py-16 sm:px-6 sm:py-20 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-emerald-300 uppercase">
+                Free tool · no signup
+              </p>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-balance">
+                Audit your last PM statement in under a minute.
+              </h2>
+              <p className="mt-3 leading-relaxed text-stone-300">
+                Upload one owner statement and your management fee percentage. We flag fee drift,
+                duplicate charges, unexplained fees, and aging work orders — with a total dollar
+                figure. Processed in memory, never stored.
+              </p>
+            </div>
+            <a
+              href="/audit"
+              className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-emerald-600 px-5 py-3 font-medium text-white hover:bg-emerald-500"
+            >
+              Run the free audit
+              <ArrowRight className="size-4" aria-hidden />
+            </a>
           </div>
         </section>
 

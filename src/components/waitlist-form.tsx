@@ -13,7 +13,7 @@ type FormState =
   | { status: "success"; alreadyJoined: boolean }
   | { status: "error"; message: string };
 
-export function WaitlistForm() {
+export function WaitlistForm({ source = "landing" }: { source?: string }) {
   const inputId = useId();
   const [email, setEmail] = useState("");
   const [state, setState] = useState<FormState>({ status: "idle" });
@@ -33,7 +33,7 @@ export function WaitlistForm() {
       const response = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: normalized }),
+        body: JSON.stringify({ email: normalized, source }),
       });
       const data = (await response.json()) as {
         ok: boolean;

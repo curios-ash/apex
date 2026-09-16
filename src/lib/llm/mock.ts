@@ -437,13 +437,34 @@ function extractListing(text: string): ExtractOutput<Fields> {
   const baths = /(\d+(?:\.\d+)?)\s*(?:bath|ba)\b/i.exec(text);
   const sqft = /([\d,]+)\s*sq ?ft/i.exec(text);
 
+  // Underwriting fields (listing-v2). Each requires an explicit keyword —
+  // a bare number is never treated as rent or taxes.
+  const rent =
+    /(?:market rent|asking rent|rents for|rented at|leased at|rental income|rent)[:\s]*\$?([\d,]+(?:\.\d{1,2})?)/i.exec(
+      text,
+    );
+  const taxes =
+    /(?:annual )?(?:property )?tax(?:es)?[:\s]*\$?([\d,]+(?:\.\d{1,2})?)\s*(?:\/\s*(?:yr|year)|per year|annually)?/i.exec(
+      text,
+    );
+  const hoa = /hoa(?:\s+dues?)?[:\s]*\$?([\d,]+(?:\.\d{1,2})?)/i.exec(text);
+  const built = /(?:year built|built)[:\s]*(\d{4})/i.exec(text);
+  const occupied = /currently (?:leased|rented)|tenant[- ]occupied|lease in place/i.test(text)
+    ? true
+    : null;
+
   return {
     fields: {
       address: address ? address[1].trim() : null,
-      listPriceCents: price ? parseMoneyToCents(`${price[1]}.00`) : null,
+      listPriceCents: price ? parseMoneyToCents(price[1]) : null,
       bedrooms: beds ? Number(beds[1]) : null,
       bathrooms: baths ? Number(baths[1]) : null,
       sqft: sqft ? Number(sqft[1].replace(/,/g, "")) : null,
+      rentCents: rent ? parseMoneyToCents(rent[1]) : null,
+      propertyTaxAnnualCents: taxes ? parseMoneyToCents(taxes[1]) : null,
+      hoaMonthlyCents: hoa ? parseMoneyToCents(hoa[1]) : null,
+      yearBuilt: built ? Number(built[1]) : null,
+      tenantOccupied: occupied,
     },
     fieldConfidence: {
       address: address ? 0.85 : 0.3,
@@ -451,6 +472,11 @@ function extractListing(text: string): ExtractOutput<Fields> {
       bedrooms: beds ? 0.9 : 0.3,
       bathrooms: baths ? 0.9 : 0.3,
       sqft: sqft ? 0.9 : 0.3,
+      rentCents: rent ? 0.85 : 0.3,
+      propertyTaxAnnualCents: taxes ? 0.85 : 0.3,
+      hoaMonthlyCents: hoa ? 0.9 : 0.3,
+      yearBuilt: built ? 0.9 : 0.3,
+      tenantOccupied: occupied ? 0.8 : 0.3,
     },
   };
 }

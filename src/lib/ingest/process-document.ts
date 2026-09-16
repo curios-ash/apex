@@ -49,7 +49,7 @@ export async function processDocument(
   try {
     const bytes = doc.storageKey ? await readStoredFile(doc.storageKey) : null;
     const text = bytes
-      ? extractTextContent(bytes, doc.mimeType, filename)
+      ? await extractTextContent(bytes, doc.mimeType, filename)
       : null;
 
     const input = {

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -651,7 +652,13 @@ export const assumptions = pgTable(
   (t) => [
     index("assumptions_workspace_idx").on(t.workspaceId),
     index("assumptions_property_idx").on(t.propertyId),
+    index("assumptions_dossier_idx").on(t.dossierId),
     uniqueIndex("assumptions_version_idx").on(t.workspaceId, t.propertyId, t.key, t.version),
+    // propertyId is null for dossier-scoped rows, which the index above
+    // treats as distinct — so dossier versions get their own partial index.
+    uniqueIndex("assumptions_dossier_version_idx")
+      .on(t.workspaceId, t.dossierId, t.key, t.version)
+      .where(sql`${t.dossierId} is not null`),
   ],
 );
 
@@ -665,14 +672,25 @@ export const dossiers = pgTable(
     propertyId: uuid("property_id").references(() => properties.id, { onDelete: "set null" }),
     title: text("title").notNull(),
     listingUrl: text("listing_url"),
+    // The listing document (uploaded PDF or pasted text) the assumptions were
+    // extracted from; null for fully manual dossiers.
+    sourceDocumentId: uuid("source_document_id").references(() => documents.id, {
+      onDelete: "set null",
+    }),
     // Snapshot of the pro forma output, computed by the finance engine only.
     payload: jsonb("payload").notNull().default({}),
     // Formula set version that produced `payload`, e.g. "finance-v1".
     financeVersion: text("finance_version").notNull(),
     status: dossierStatusEnum("status").notNull().default("draft"),
+    // Token-gated public read-only link (/share/dossiers/<token>). Null = not shared.
+    shareToken: text("share_token"),
+    sharedAt: timestamp("shared_at", { withTimezone: true }),
     ...timestamps,
   },
-  (t) => [index("dossiers_workspace_idx").on(t.workspaceId)],
+  (t) => [
+    index("dossiers_workspace_idx").on(t.workspaceId),
+    uniqueIndex("dossiers_share_token_idx").on(t.shareToken),
+  ],
 );
 
 export const obligations = pgTable(
