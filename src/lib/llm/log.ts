@@ -10,7 +10,7 @@ import type { LlmCallMeta } from "./types";
 export async function logLlmCall(params: {
   workspaceId: string;
   documentId?: string | null;
-  purpose: "classify" | "extract" | "narrate";
+  purpose: "classify" | "extract" | "narrate" | "draft";
   meta: LlmCallMeta;
   output?: unknown;
   error?: string;

@@ -137,8 +137,10 @@ export const actionTypeEnum = pgEnum("action_type", [
   "call_pm",
   "other",
 ]);
+// Drafts land as pending_approval and stay there until a human approves or
+// rejects them — nothing is ever sent autonomously.
 export const actionStatusEnum = pgEnum("action_status", [
-  "draft",
+  "pending_approval",
   "approved",
   "rejected",
   "sent",
@@ -168,7 +170,12 @@ export const obligationTypeEnum = pgEnum("obligation_type", [
   "other",
 ]);
 export const obligationStatusEnum = pgEnum("obligation_status", ["pending", "done", "dismissed"]);
-export const llmCallPurposeEnum = pgEnum("llm_call_purpose", ["classify", "extract", "narrate"]);
+export const llmCallPurposeEnum = pgEnum("llm_call_purpose", [
+  "classify",
+  "extract",
+  "narrate",
+  "draft",
+]);
 export const llmCallStatusEnum = pgEnum("llm_call_status", ["success", "error"]);
 
 const timestamps = {
@@ -591,7 +598,7 @@ export const actions = pgTable(
     title: text("title").notNull(),
     // Email body, recipients, quote scope — whatever the Coordinator drafted.
     draftPayload: jsonb("draft_payload").notNull().default({}),
-    status: actionStatusEnum("status").notNull().default("draft"),
+    status: actionStatusEnum("status").notNull().default("pending_approval"),
     dollarAmountCents: bigint("dollar_amount_cents", { mode: "number" }),
     createdBy: actorTypeEnum("created_by").notNull().default("agent"),
     approvedBy: uuid("approved_by").references(() => users.id, { onDelete: "set null" }),
@@ -713,6 +720,11 @@ export const obligations = pgTable(
   (t) => [
     index("obligations_workspace_idx").on(t.workspaceId),
     index("obligations_workspace_due_idx").on(t.workspaceId, t.dueDate),
+    // One obligation per source row (lease/policy/agreement) so the
+    // derivation sync can upsert idempotently.
+    uniqueIndex("obligations_source_idx")
+      .on(t.workspaceId, t.obligationType, t.relatedId)
+      .where(sql`${t.relatedId} is not null`),
   ],
 );
 

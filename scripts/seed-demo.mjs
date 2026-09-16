@@ -34,7 +34,8 @@ if (!property) {
 }
 
 // PM agreement at 8% of collected income — the demo statements charge 10%,
-// which is what the fee-drift rule catches.
+// which is what the fee-drift rule catches. The end date (75 days out) feeds
+// the renewal calendar's pm_agreement_renewal obligation.
 const [agreement] = await sql`
   select id from pm_agreements
   where workspace_id = ${workspace.id} and property_id = ${property.id}
@@ -42,8 +43,71 @@ const [agreement] = await sql`
 `;
 if (!agreement) {
   await sql`
-    insert into pm_agreements (workspace_id, property_id, pm_company_name, fee_bps, start_date)
-    values (${workspace.id}, ${property.id}, 'Sunset Property Management', 800, '2026-01-01')
+    insert into pm_agreements (workspace_id, property_id, pm_company_name, fee_bps, start_date, end_date)
+    values (${workspace.id}, ${property.id}, 'Sunset Property Management', 800, '2026-01-01', ${daysFromNow(75)})
+  `;
+} else {
+  await sql`
+    update pm_agreements set end_date = ${daysFromNow(75)}
+    where id = ${agreement.id} and end_date is null
+  `;
+}
+
+// --- Renewal calendar demo data (slice 5) ---------------------------------
+// Dates are relative to seed time so the calendar always has live content:
+// a lease ending in 20 days (inside the 30-day reminder window), a policy
+// renewing in 45, and the PM agreement ending in 75 (above).
+
+function daysFromNow(n) {
+  const d = new Date(Date.now() + n * 24 * 60 * 60 * 1000);
+  return d.toISOString().slice(0, 10);
+}
+
+let [unitA] = await sql`
+  select id from units
+  where workspace_id = ${workspace.id} and property_id = ${property.id} and label = 'Unit A'
+  limit 1
+`;
+if (!unitA) {
+  [unitA] = await sql`
+    insert into units (workspace_id, property_id, label, bedrooms, bathrooms, market_rent_cents, status)
+    values (${workspace.id}, ${property.id}, 'Unit A', 2, 1, 1450_00, 'occupied')
+    returning id
+  `;
+}
+const [unitB] = await sql`
+  select id from units
+  where workspace_id = ${workspace.id} and property_id = ${property.id} and label = 'Unit B'
+  limit 1
+`;
+if (!unitB) {
+  await sql`
+    insert into units (workspace_id, property_id, label, bedrooms, bathrooms, market_rent_cents, status)
+    values (${workspace.id}, ${property.id}, 'Unit B', 2, 1, 1450_00, 'occupied')
+  `;
+}
+
+const [existingLease] = await sql`
+  select id from leases
+  where workspace_id = ${workspace.id} and unit_id = ${unitA.id} and tenant_name = 'Jordan Reyes'
+  limit 1
+`;
+if (!existingLease) {
+  await sql`
+    insert into leases (workspace_id, unit_id, tenant_name, start_date, end_date, rent_cents, deposit_cents, status)
+    values (${workspace.id}, ${unitA.id}, 'Jordan Reyes', ${daysFromNow(-345)}, ${daysFromNow(20)}, 1450_00, 1450_00, 'active')
+  `;
+}
+
+const [existingPolicy] = await sql`
+  select id from policies
+  where workspace_id = ${workspace.id} and property_id = ${property.id} and carrier = 'Lone Star Mutual'
+  limit 1
+`;
+if (!existingPolicy) {
+  await sql`
+    insert into policies (workspace_id, property_id, carrier, policy_number, policy_type, annual_premium_cents, renewal_date)
+    values (${workspace.id}, ${property.id}, 'Lone Star Mutual', 'LSM-88421', 'landlord_dwelling', 1140_00, ${daysFromNow(45)})
   `;
 }
 

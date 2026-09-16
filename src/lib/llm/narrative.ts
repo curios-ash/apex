@@ -3,6 +3,7 @@ import { generateText } from "ai";
 import { formatCents } from "@/lib/format";
 
 import { resolveModelFor } from "./ai-sdk";
+import { collectAllowedValues, findUngroundedTokens } from "./groundedness";
 import type { LlmCallMeta } from "./types";
 
 // The monthly Owner Review narrative. The LLM explains engine outputs — it
@@ -59,60 +60,13 @@ export interface NarrativeLlm {
 
 // ---------------------------------------------------------------------------
 // Groundedness: every $ amount or percent in the narrative must trace to the
-// figures payload. Allowed values are the payload's *Cents fields plus any
-// $/percent tokens already inside its strings (engine summaries are grounded
-// by construction, so quoting them is safe).
+// figures payload. The generic walker lives in ./groundedness; engine
+// summaries are grounded by construction, so quoting them is safe.
 // ---------------------------------------------------------------------------
-
-const MONEY_TOKEN = /-?\$[\d,]+(?:\.\d{1,2})?/g;
-const PERCENT_TOKEN = /(\d+(?:\.\d+)?)%/g;
-
-function parseMoneyToken(token: string): number {
-  const negative = token.startsWith("-");
-  const s = token.replace(/^-?\$/, "").replace(/,/g, "");
-  const [dollars, frac = ""] = s.split(".");
-  const cents = Number(dollars) * 100 + Number((frac + "00").slice(0, 2));
-  return negative ? -cents : cents;
-}
-
-function collectAllowed(figures: ReviewFigures): { cents: Set<number>; percents: Set<number> } {
-  const cents = new Set<number>([0]);
-  const percents = new Set<number>();
-
-  function walk(value: unknown, key?: string): void {
-    if (typeof value === "number" && Number.isFinite(value)) {
-      if (key?.endsWith("Cents")) cents.add(value);
-      if (key === "variancePct" && value !== null) percents.add(Math.round(Math.abs(value) * 100));
-      return;
-    }
-    if (typeof value === "string") {
-      for (const m of value.matchAll(MONEY_TOKEN)) cents.add(parseMoneyToken(m[0]));
-      for (const m of value.matchAll(PERCENT_TOKEN)) percents.add(Number(m[1]));
-      return;
-    }
-    if (Array.isArray(value)) {
-      value.forEach((v) => walk(v));
-      return;
-    }
-    if (value !== null && typeof value === "object") {
-      for (const [k, v] of Object.entries(value)) walk(v, k);
-    }
-  }
-  walk(figures);
-  return { cents, percents };
-}
 
 // Returns the offending tokens; empty means the narrative is grounded.
 export function findUngroundedNumbers(text: string, figures: ReviewFigures): string[] {
-  const allowed = collectAllowed(figures);
-  const offenders: string[] = [];
-  for (const m of text.matchAll(MONEY_TOKEN)) {
-    if (!allowed.cents.has(parseMoneyToken(m[0]))) offenders.push(m[0]);
-  }
-  for (const m of text.matchAll(PERCENT_TOKEN)) {
-    if (!allowed.percents.has(Number(m[1]))) offenders.push(m[0]);
-  }
-  return [...new Set(offenders)];
+  return findUngroundedTokens(text, collectAllowedValues(figures));
 }
 
 // ---------------------------------------------------------------------------

@@ -45,6 +45,7 @@ npm run inbound:demo                         # posts a sample inbound email w/ a
 node scripts/e2e-inbound.mjs                 # ingestion e2e assertions against the running server
 node scripts/e2e-reconcile.mjs               # reconciliation e2e: ingest -> verify -> exceptions
 node scripts/e2e-audit.mjs                   # free audit tool e2e: flags, no persistence, rate limit
+node scripts/e2e-actions.mjs                 # approval queue e2e: obligations, reminder cron, activity log
 ```
 
 Then open the internal pages:
@@ -52,10 +53,13 @@ Then open the internal pages:
 - **`/upload`** — upload statements/invoices directly; table of recent documents with classification status.
 - **`/verify`** — low-confidence extractions with the source document linked; approve, correct, or reject. Every decision writes an `audit_log` row. Approving a statement runs reconciliation automatically.
 - **`/exceptions`** — deterministic findings with dollar impacts and evidence links. Confirm adds the dollars to the impact ledger; dismiss closes the finding. Both write `audit_log` rows.
+- **`/actions`** — the approval queue: Coordinator-drafted PM follow-ups, quote requests, and renewal reminders. View the full draft with cited exception IDs, edit the body, approve or reject. Approved drafts render a mailto link and a copy button — **nothing is ever sent automatically** (SMTP send is v1.1).
+- **`/calendar`** — the renewal calendar: obligations derived from lease end dates, policy renewal dates, and PM agreement end/notice windows. Next 90 days grouped by type with days-until badges; overdue items highlighted.
 - **`/review`** — monthly Owner Review per property: budget vs. actual, exceptions with evidence, and an LLM narrative that cites exception IDs and may only use engine-computed figures.
 - **`/ledger`** — the impact ledger: cumulative confirmed dollars per property and in total.
 - **`/budget`** — manual monthly budget per property and category (the setup wizard is R1).
 - **`/dossiers`** — the underwriter: versioned pro formas from listing PDFs, pasted text, or manual inputs, with sourced assumptions, a configurable downside case, and a gap-driven diligence checklist.
+- **`/activity`** — the audit log viewer: every state change in the workspace, newest first, filterable by action and entity type. (Named `/activity` because `/audit` is the public free tool.)
 
 And the public free tool on the marketing site:
 - **`/audit`** — the PM Statement Audit. No signup: upload one owner statement (PDF or text) + your management fee %, get fee drift / duplicate charges / unexplained fees / aging work orders with a total dollar figure. Anonymous uploads are processed in memory and never persisted; IP rate-limited.
@@ -136,6 +140,36 @@ ended and generates reviews for every property with activity, in every
 workspace. Set `CRON_SECRET` so Vercel's bearer token is required. A manual
 **Generate review** button on `/review` covers R0.
 
+## Approval queue (Coordinator)
+
+The Coordinator is the third workflow in the plan: it drafts, humans decide.
+`src/coordinator/` is pure TypeScript (draft templates, obligation derivation,
+reminder scheduling, mailto building); `src/lib/actions/draft.ts` is the DB
+binding; `src/lib/llm/drafter.ts` (`coordinator-draft-v1`) is the LLM wrapper
+with the same groundedness contract as the review narrative — every `$`/`%`
+in a draft must trace to the context payload, or the deterministic template
+is swapped in (`used_fallback` on the payload). The mock provider emits the
+template, so no credentials are needed.
+
+- **Draft sources:** confirmed exceptions (fee drift / duplicate → `email_pm`, repeat repairs → `request_quote`) via **Draft follow-up** on `/actions` or the exceptions page, and the renewal cron (`reminder`). Drafting is idempotent per exception while a live action exists; a rejected draft can be re-drafted.
+- **Queue:** drafts land as `pending_approval`. Edits, approvals, and rejections are server actions that each write `audit_log` rows (`action.drafted` / `action.updated` / `action.approved` / `action.rejected`); approving persists any unsaved edits first.
+- **Sending:** there is none. Approved email drafts render a `mailto:` link (recipient, subject, and body — with cited exception IDs — percent-encoded) and a copy button. Direct SMTP send is v1.1, and the page says so.
+
+## Renewal calendar
+
+`syncObligations` (`src/lib/obligations/sync.ts`) derives `obligations` rows
+from the property record — lease end dates (60-day notice), policy renewal
+dates (30-day), PM agreement end dates (60-day) — upserting per source row
+(`obligations_source_idx`), so `/calendar` and the cron always work from
+current data. Done/dismissed rows are never resurrected.
+
+**Cron:** `vercel.json` registers `GET /api/cron/renewal-reminders` at
+`0 13 * * *` (daily, morning US). For each workspace it re-syncs obligations
+and drafts reminder actions into the approval queue at the 30/14/7-day
+thresholds — one reminder per obligation per threshold, idempotent across
+re-runs (a rejected reminder is not re-drafted). A **Check for due
+reminders** button on `/calendar` runs the same path manually.
+
 ## Inbound email (provider setup)
 
 Each workspace gets an alias `<slug>@in.<domain>` (the demo workspace is
@@ -190,6 +224,9 @@ src/
       upload/                  #   /upload — document upload + recent documents
       verify/                  #   /verify — low-confidence extraction queue
       exceptions/              #   /exceptions — findings, confirm/dismiss
+      actions/                 #   /actions — approval queue: view/edit/approve/reject drafts
+      calendar/                #   /calendar — renewal calendar (obligations from the record)
+      activity/                #   /activity — audit log viewer (filterable)
       review/                  #   /review — monthly Owner Review + narrative
       ledger/                  #   /ledger — confirmed impact dollars
       budget/                  #   /budget — manual budget entry
@@ -198,6 +235,7 @@ src/
     api/inbound-email/         #   POST Resend/Postmark-style webhook
     api/reconcile/             #   POST manual reconciliation trigger
     api/cron/monthly-review/   #   GET Vercel cron: reconcile + generate reviews
+    api/cron/renewal-reminders/#   GET Vercel cron: draft 30/14/7-day reminder actions
     api/audit/                 #   POST anonymous PM statement audit (rate-limited, no persistence)
     audit/                     #   /audit — free tool page (marketing site)
     share/dossiers/[token]/    #   public read-only dossier page
@@ -206,12 +244,15 @@ src/
   reconcile/                   # reconciliation engine (pure TS): matching, variances, rules
   dossier/                     # underwriter core (pure TS): assumptions -> DealInputs, downside, checklist
   audit/                       # statement audit rules (pure TS, anonymous tool)
+  coordinator/                 # Coordinator core (pure TS): draft templates, obligations, reminders, mailto
   lib/
     db/schema.ts               # canonical model: 24 workspace-scoped tables + waitlist
-    llm/                       # provider selection, mock provider, Zod schemas, narrative, logging
+    llm/                       # provider selection, mock provider, Zod schemas, narrative, drafter, logging
     ingest/                    # store → classify → extract pipeline
     reconcile/run.ts           # engine DB binding (materialize, upsert, auto-resolve)
     review/generate.ts         # Owner Review figures builder + narrative orchestration
+    actions/draft.ts           # Coordinator DB binding (exception → draft, renewal reminders)
+    obligations/sync.ts        # obligations derivation DB binding
     dossier/                   # underwriter DB binding (intake, create/revise/share, load)
     storage.ts                 # Vercel Blob / local-disk file storage
     pdf.ts                     # pdf.js text extraction (line reconstruction by Y-coordinate)
@@ -220,10 +261,10 @@ src/
     workspace.ts               # pre-auth active-workspace resolution
     audit.ts                   # audit_log writer
 fixtures/                      # synthetic statements (tests + dev scripts)
-scripts/                       # seed-demo, dev-inbound-email, e2e-inbound, e2e-reconcile, e2e-audit (.mjs)
+scripts/                       # seed-demo, dev-inbound-email, e2e-inbound/reconcile/audit/actions (.mjs)
 drizzle/                       # generated SQL migrations
 docker-compose.yml             # local Postgres
-vercel.json                    # cron: monthly review kickoff
+vercel.json                    # crons: monthly review kickoff, renewal reminders
 ```
 
 ### Conventions that matter
@@ -263,4 +304,4 @@ Everything above runs with zero cloud accounts. Do these when we're ready for a 
 
 ## What intentionally isn't here yet
 
-Auth enforcement (schema-ready only — internal pages operate on the active workspace, see `src/lib/workspace.ts`), OCR for scanned PDFs (text-layer PDFs extract locally via pdf.js; scans fall back to the real LLM provider's file input or the verify queue), durable job execution (pipeline runs inline in the request; Vercel Workflow replaces that in R1), the budget setup wizard (R1 — `/budget` is manual entry), approval queue UI for Coordinator drafts, billing. See the master plan for the 26-week sequence.
+Auth enforcement (schema-ready only — internal pages operate on the active workspace, see `src/lib/workspace.ts`), OCR for scanned PDFs (text-layer PDFs extract locally via pdf.js; scans fall back to the real LLM provider's file input or the verify queue), durable job execution (pipeline runs inline in the request; Vercel Workflow replaces that in R1), the budget setup wizard (R1 — `/budget` is manual entry), SMTP sending for approved drafts (v1.1 — approval currently unlocks mailto/copy only), billing. See the master plan for the 26-week sequence.

@@ -37,6 +37,12 @@ export default async function InternalLayout({ children }: { children: React.Rea
               <Link href="/exceptions" className="hover:text-stone-900">
                 Exceptions
               </Link>
+              <Link href="/actions" className="hover:text-stone-900">
+                Actions
+              </Link>
+              <Link href="/calendar" className="hover:text-stone-900">
+                Calendar
+              </Link>
               <Link href="/review" className="hover:text-stone-900">
                 Review
               </Link>
@@ -48,6 +54,9 @@ export default async function InternalLayout({ children }: { children: React.Rea
               </Link>
               <Link href="/dossiers" className="hover:text-stone-900">
                 Dossiers
+              </Link>
+              <Link href="/activity" className="hover:text-stone-900">
+                Activity
               </Link>
             </nav>
           </div>
