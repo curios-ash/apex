@@ -20,7 +20,8 @@
     "e2e:inbound": "node scripts/e2e-inbound.mjs",
     "e2e:reconcile": "node scripts/e2e-reconcile.mjs",
     "e2e:audit": "node scripts/e2e-audit.mjs",
-    "e2e:actions": "node scripts/e2e-actions.mjs"
+    "e2e:actions": "node scripts/e2e-actions.mjs",
+    "e2e:onboarding": "node scripts/e2e-onboarding.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.54",

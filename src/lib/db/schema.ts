@@ -22,6 +22,14 @@ import {
 // - Every domain table carries workspace_id; all queries are workspace-scoped.
 
 export const workspacePlanEnum = pgEnum("workspace_plan", ["free", "owner", "portfolio"]);
+export const subscriptionStatusEnum = pgEnum("subscription_status", [
+  "none",
+  "trialing",
+  "active",
+  "past_due",
+  "canceled",
+  "unpaid",
+]);
 export const userRoleEnum = pgEnum("user_role", ["owner", "member", "cpa"]);
 export const entityTypeEnum = pgEnum("entity_type", [
   "personal",
@@ -189,6 +197,13 @@ export const workspaces = pgTable("workspaces", {
   // Drives the inbound email alias: <slug>@in.<domain>
   slug: text("slug").notNull().unique(),
   plan: workspacePlanEnum("plan").notNull().default("free"),
+  // Stripe billing (slice 6). Null until a Checkout session completes; the
+  // webhook handler keeps plan/status/doors in sync from subscription events.
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  subscriptionStatus: subscriptionStatusEnum("subscription_status").notNull().default("none"),
+  // Total doors last reported to / received from Stripe (per-door pricing).
+  billableDoors: integer("billable_doors"),
   ...timestamps,
 });
 

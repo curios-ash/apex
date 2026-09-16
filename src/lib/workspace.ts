@@ -1,14 +1,17 @@
 import { and, asc, eq } from "drizzle-orm";
 
+import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, workspaces } from "@/lib/db/schema";
 
-// Pre-auth workspace resolution for the internal (R0) tools. Every query is
-// still workspace-scoped; this just picks which workspace the internal pages
-// and webhooks operate on until Clerk/WorkOS lands:
-//   1. APEX_WORKSPACE_SLUG when set,
-//   2. otherwise the oldest workspace,
-//   3. otherwise a "demo" workspace is created so first run works.
+// Workspace resolution for the internal tools. Every query is still
+// workspace-scoped; this picks which workspace a request operates on:
+//   1. the signed-in session's workspace (dev provider or Clerk — slice 6),
+//   2. APEX_WORKSPACE_SLUG when set,
+//   3. otherwise the oldest workspace,
+//   4. otherwise a "demo" workspace is created so first run works.
+// Webhooks and crons carry no session cookie, so they always land on the
+// legacy fallbacks — which keeps the pre-auth e2e scripts working.
 
 export interface ActiveWorkspace {
   id: string;
@@ -23,6 +26,20 @@ export async function getWorkspaceBySlug(slug: string) {
 }
 
 export async function getActiveWorkspace(): Promise<ActiveWorkspace> {
+  const session = await getSession();
+  if (session) {
+    const rows = await db.select().from(workspaces).where(eq(workspaces.id, session.workspaceId));
+    const workspace = rows[0];
+    if (workspace) {
+      return {
+        id: workspace.id,
+        name: workspace.name,
+        slug: workspace.slug,
+        ownerUserId: session.userId,
+      };
+    }
+  }
+
   const configuredSlug = process.env.APEX_WORKSPACE_SLUG;
 
   let workspace = configuredSlug ? await getWorkspaceBySlug(configuredSlug) : null;
