@@ -169,6 +169,7 @@ export function ExtractionCard(props: {
           ) : (
             <>
               <Button
+                type="submit"
                 formAction={approveExtraction}
                 className="bg-emerald-700 text-white hover:bg-emerald-600"
               >
@@ -177,7 +178,7 @@ export function ExtractionCard(props: {
               <Button type="button" variant="outline" onClick={() => setEditing(true)}>
                 Correct
               </Button>
-              <Button formAction={rejectExtraction} variant="destructive">
+              <Button type="submit" formAction={rejectExtraction} variant="destructive">
                 Reject
               </Button>
             </>
