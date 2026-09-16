@@ -1,4 +1,6 @@
-import { generateObject } from "ai";
+import { anthropic } from "@ai-sdk/anthropic";
+import { gateway } from "@ai-sdk/gateway";
+import { generateObject, type LanguageModel } from "ai";
 import { z } from "zod";
 
 import { DOCUMENT_KINDS } from "./types";
@@ -29,25 +31,17 @@ const classifySchema = z.object({
 interface ResolvedModel {
   provider: "gateway" | "anthropic";
   modelId: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  model: any;
+  model: LanguageModel;
 }
 
 export function resolveModel(): ResolvedModel | null {
   const modelId = process.env.APEX_LLM_MODEL ?? "anthropic/claude-sonnet-5";
   if (process.env.AI_GATEWAY_API_KEY) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { gateway } = require("@ai-sdk/gateway") as typeof import("@ai-sdk/gateway");
     return { provider: "gateway", modelId, model: gateway(modelId) };
   }
   if (process.env.ANTHROPIC_API_KEY) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { anthropic } = require("@ai-sdk/anthropic") as typeof import("@ai-sdk/anthropic");
-    return {
-      provider: "anthropic",
-      modelId: modelId.replace(/^anthropic\//, ""),
-      model: anthropic(modelId.replace(/^anthropic\//, "")),
-    };
+    const directId = modelId.replace(/^anthropic\//, "");
+    return { provider: "anthropic", modelId: directId, model: anthropic(directId) };
   }
   return null;
 }
