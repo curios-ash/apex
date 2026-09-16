@@ -1,0 +1,25 @@
+AppFolio Property Manager
+Sunset Property Management
+Owner Statement
+
+Prepared for: Demo Owner
+Property: 421 Maple Street, Austin, TX 78701
+Statement Period: 03/01/2026 - 03/31/2026
+
+Beginning Balance: $1,250.00
+
+Income
+Date        Description                            Amount
+03/03/2026  Rent - Unit A                          1,450.00
+03/03/2026  Rent - Unit B                          1,450.00
+03/10/2026  Late fee - Unit B                         75.00
+Total Income                                     2,975.00
+
+Expenses
+03/05/2026  Management fee                         -297.50
+03/12/2026  Plumbing repair - Unit A               -185.00
+03/20/2026  Landscaping                             -90.00
+03/28/2026  Owner draw - ACH transfer           -2,402.50
+Total Expenses                                  -2,975.00
+
+Ending Balance: $1,250.00

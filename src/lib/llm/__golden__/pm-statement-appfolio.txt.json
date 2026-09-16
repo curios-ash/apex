@@ -1,0 +1,77 @@
+{
+  "classification": {
+    "confidence": 0.95,
+    "kind": "pm_statement",
+    "rationale": "mock: keyword score 12",
+  },
+  "extraction": {
+    "fieldConfidence": {
+      "beginningBalanceCents": 0.97,
+      "endingBalanceCents": 0.97,
+      "lines": 0.75,
+      "managementFeeCents": 0.8,
+      "ownerDrawCents": 0.8,
+      "periodEnd": 0.98,
+      "periodStart": 0.98,
+      "pmCompanyName": 0.85,
+      "propertyAddress": 0.95,
+    },
+    "fields": {
+      "beginningBalanceCents": 125000,
+      "endingBalanceCents": 125000,
+      "lines": [
+        {
+          "amountCents": 145000,
+          "category": "rent",
+          "date": "2026-03-03",
+          "description": "Rent - Unit A",
+        },
+        {
+          "amountCents": 145000,
+          "category": "rent",
+          "date": "2026-03-03",
+          "description": "Rent - Unit B",
+        },
+        {
+          "amountCents": 7500,
+          "category": "late_fee",
+          "date": "2026-03-10",
+          "description": "Late fee - Unit B",
+        },
+        {
+          "amountCents": -29750,
+          "category": "mgmt_fee",
+          "date": "2026-03-05",
+          "description": "Management fee",
+        },
+        {
+          "amountCents": -18500,
+          "category": "repair",
+          "date": "2026-03-12",
+          "description": "Plumbing repair - Unit A",
+        },
+        {
+          "amountCents": -9000,
+          "category": "maintenance",
+          "date": "2026-03-20",
+          "description": "Landscaping",
+        },
+        {
+          "amountCents": -240250,
+          "category": "other_expense",
+          "date": "2026-03-28",
+          "description": "Owner draw - ACH transfer",
+        },
+      ],
+      "managementFeeCents": 29750,
+      "ownerDrawCents": 240250,
+      "periodEnd": "2026-03-31",
+      "periodStart": "2026-03-01",
+      "pmCompanyName": "Sunset Property Management",
+      "propertyAddress": "421 Maple Street, Austin, TX 78701",
+    },
+  },
+  "overallConfidence": 0.894,
+  "schemaVersion": "pm-statement-v1",
+  "status": "needs_review",
+}

@@ -1,0 +1,59 @@
+{
+  "classification": {
+    "confidence": 0.95,
+    "kind": "pm_statement",
+    "rationale": "mock: keyword score 12",
+  },
+  "extraction": {
+    "fieldConfidence": {
+      "beginningBalanceCents": 0.97,
+      "endingBalanceCents": 0.97,
+      "lines": 0.75,
+      "managementFeeCents": 0.8,
+      "ownerDrawCents": 0.8,
+      "periodEnd": 0.98,
+      "periodStart": 0.98,
+      "pmCompanyName": 0.85,
+      "propertyAddress": 0.95,
+    },
+    "fields": {
+      "beginningBalanceCents": 81025,
+      "endingBalanceCents": 100025,
+      "lines": [
+        {
+          "amountCents": 169500,
+          "category": "rent",
+          "date": "2026-03-01",
+          "description": "Rent received",
+        },
+        {
+          "amountCents": -16950,
+          "category": "mgmt_fee",
+          "date": "2026-03-04",
+          "description": "Management fee",
+        },
+        {
+          "amountCents": -34000,
+          "category": "repair",
+          "date": "2026-03-15",
+          "description": "HVAC repair",
+        },
+        {
+          "amountCents": -99550,
+          "category": "other_expense",
+          "date": "2026-03-31",
+          "description": "Owner disbursement",
+        },
+      ],
+      "managementFeeCents": 16950,
+      "ownerDrawCents": 99550,
+      "periodEnd": "2026-03-31",
+      "periodStart": "2026-03-01",
+      "pmCompanyName": "Sunrise Property Management LLC",
+      "propertyAddress": "88 Oak Avenue, Unit 4, Denver, CO 80203",
+    },
+  },
+  "overallConfidence": 0.894,
+  "schemaVersion": "pm-statement-v1",
+  "status": "needs_review",
+}

@@ -167,6 +167,8 @@ export const obligationTypeEnum = pgEnum("obligation_type", [
   "other",
 ]);
 export const obligationStatusEnum = pgEnum("obligation_status", ["pending", "done", "dismissed"]);
+export const llmCallPurposeEnum = pgEnum("llm_call_purpose", ["classify", "extract"]);
+export const llmCallStatusEnum = pgEnum("llm_call_status", ["success", "error"]);
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -670,6 +672,40 @@ export const auditLog = pgTable(
   (t) => [
     index("audit_log_workspace_idx").on(t.workspaceId),
     index("audit_log_workspace_created_idx").on(t.workspaceId, t.createdAt),
+  ],
+);
+
+// Every LLM call is logged here: prompt version, model, tokens/cost, output hash.
+// Cost is integer micro-dollars (1e-6 USD) so fractional-cent calls stay exact.
+export const llmCalls = pgTable(
+  "llm_calls",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id").references(() => documents.id, { onDelete: "set null" }),
+    purpose: llmCallPurposeEnum("purpose").notNull(),
+    // "mock" | "gateway" | "anthropic"
+    provider: text("provider").notNull(),
+    // e.g. "mock-deterministic-v1", "anthropic/claude-sonnet-5"
+    model: text("model").notNull(),
+    // e.g. "classify-v1", "pm-statement-v1"
+    promptVersion: text("prompt_version").notNull(),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    costMicrodollars: bigint("cost_microdollars", { mode: "number" }),
+    // sha256 hex of the canonical JSON output, for dedupe and drift detection.
+    outputHash: text("output_hash"),
+    latencyMs: integer("latency_ms"),
+    status: llmCallStatusEnum("status").notNull().default("success"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("llm_calls_workspace_idx").on(t.workspaceId),
+    index("llm_calls_document_idx").on(t.documentId),
+    index("llm_calls_workspace_created_idx").on(t.workspaceId, t.createdAt),
   ],
 );
 

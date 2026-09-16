@@ -1,0 +1,61 @@
+{
+  "classification": {
+    "confidence": 0.95,
+    "kind": "bank_statement",
+    "rationale": "mock: keyword score 11",
+  },
+  "extraction": {
+    "fieldConfidence": {
+      "accountLast4": 0.95,
+      "bankName": 0.9,
+      "beginningBalanceCents": 0.97,
+      "endingBalanceCents": 0.97,
+      "lines": 0.6,
+      "periodEnd": 0.98,
+      "periodStart": 0.98,
+    },
+    "fields": {
+      "accountLast4": "4521",
+      "bankName": "First National Bank",
+      "beginningBalanceCents": 824015,
+      "endingBalanceCents": 1011592,
+      "lines": [
+        {
+          "amountCents": 240250,
+          "category": "other_income",
+          "date": "2026-03-03",
+          "description": "ACH CREDIT SUNSET PM OWNER DRAW",
+        },
+        {
+          "amountCents": 50000,
+          "category": "other_income",
+          "date": "2026-03-17",
+          "description": "MOBILE DEPOSIT",
+        },
+        {
+          "amountCents": -14233,
+          "category": "utilities",
+          "date": "2026-03-05",
+          "description": "ACH DEBIT CITY UTILITIES",
+        },
+        {
+          "amountCents": -8940,
+          "category": "repair",
+          "date": "2026-03-11",
+          "description": "CHECK #1042 PLUMBING SUPPLY",
+        },
+        {
+          "amountCents": -79500,
+          "category": "insurance",
+          "date": "2026-03-28",
+          "description": "ACH DEBIT INSURANCE PREMIUM",
+        },
+      ],
+      "periodEnd": "2026-03-31",
+      "periodStart": "2026-03-01",
+    },
+  },
+  "overallConfidence": 0.907,
+  "schemaVersion": "bank-statement-v1",
+  "status": "needs_review",
+}

@@ -1,0 +1,17 @@
+Propertyware
+Owner Statement
+
+Statement Date Range: 03/01/2026 - 03/31/2026
+Owner: Demo Owner
+Property: 17 Birch Lane, Columbus, OH 43215
+Management Company: Buckeye Property Management
+
+Opening Balance: $2,040.00
+
+Date       Payee                Description                   Amount
+03/02/2026 Tenant - J. Smith    Rent payment                1,275.00
+03/06/2026 Buckeye PM           Management fee - 10%         -127.50
+03/18/2026 QuickFix Plumbing    Repair - kitchen sink        -210.00
+03/25/2026 Owner                Distribution to owner        -937.50
+
+Closing Balance: $2,040.00

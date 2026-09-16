@@ -1,0 +1,17 @@
+Buildium
+Sunrise Property Management LLC
+Owner Statement
+
+Property: 88 Oak Avenue, Unit 4, Denver, CO 80203
+Statement Period: March 1, 2026 - March 31, 2026
+
+Beginning balance                                      $810.25
+
+Transactions
+Date       Type          Description                    Amount
+03/01/2026 Receipt       Rent received                1,695.00
+03/04/2026 Charge        Management fee                -169.50
+03/15/2026 Charge        HVAC repair                   -340.00
+03/31/2026 Disbursement  Owner disbursement            -995.50
+
+Ending balance                                       $1,000.25

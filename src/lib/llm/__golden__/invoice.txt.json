@@ -1,0 +1,35 @@
+{
+  "classification": {
+    "confidence": 0.95,
+    "kind": "invoice",
+    "rationale": "mock: keyword score 9",
+  },
+  "extraction": {
+    "fieldConfidence": {
+      "dueDate": 0.95,
+      "invoiceDate": 0.95,
+      "invoiceNumber": 0.95,
+      "lines": 0.85,
+      "totalCents": 0.97,
+      "vendorName": 0.8,
+    },
+    "fields": {
+      "dueDate": "2026-04-17",
+      "invoiceDate": "2026-03-18",
+      "invoiceNumber": "QF-2211",
+      "lines": [
+        {
+          "amountCents": 21000,
+          "category": "repair",
+          "date": "2026-03-18",
+          "description": "Kitchen sink repair - parts and labor",
+        },
+      ],
+      "totalCents": 21000,
+      "vendorName": "QuickFix Plumbing",
+    },
+  },
+  "overallConfidence": 0.912,
+  "schemaVersion": "invoice-v1",
+  "status": "needs_review",
+}

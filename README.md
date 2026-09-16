@@ -19,33 +19,106 @@ Requires Node 22+ and Docker.
 npm install
 npm run db:up        # starts Postgres 17 in Docker (postgres://postgres:postgres@localhost:5432/apex)
 npm run db:migrate   # applies drizzle/ migrations
+npm run db:seed      # idempotent demo workspace (slug "demo") + sample property
 npm run dev          # http://localhost:3000
 ```
 
 `DATABASE_URL` defaults to the dockerized Postgres, so no `.env` is needed. To override, copy `.env.example` to `.env` and edit.
 
 ```bash
-npm test             # finance engine + waitlist validation unit tests
+npm test             # unit + golden-file tests (mock LLM provider, no credentials)
 npm run build        # production build
 npm run lint         # eslint
 ```
 
 Useful DB extras: `npm run db:studio` (Drizzle Studio), `npm run db:generate` (new migration after editing `src/lib/db/schema.ts`), `npm run db:down`.
 
+### Try the ingestion loop locally
+
+No cloud accounts needed — storage falls back to local disk and the LLM falls
+back to a deterministic mock provider.
+
+```bash
+npm run dev                                  # terminal 1
+npm run db:seed                              # terminal 2, once
+npm run inbound:demo                         # posts a sample inbound email w/ attachment
+node scripts/e2e-inbound.mjs                 # full e2e assertion against the running server
+```
+
+Then open the internal pages:
+
+- **`/upload`** — upload statements/invoices directly; table of recent documents with classification status.
+- **`/verify`** — low-confidence extractions with the source document linked; approve, correct, or reject. Every decision writes an `audit_log` row.
+
+## Inbound email (provider setup)
+
+Each workspace gets an alias `<slug>@in.<domain>` (the demo workspace is
+`demo@…`). `POST /api/inbound-email` accepts both Postmark- and Resend-style
+JSON payloads, resolves the workspace from the alias, stores each attachment
+as a document, and runs classify + extract on each. If an email has no
+attachments, the text body itself becomes the document.
+
+**Postmark (works out of the box):**
+
+1. Postmark server → **Settings → Inbound** → set the inbound domain to `in.<yourdomain>` and add the DNS records they show.
+2. Set the **webhook URL** to `https://<your-host>/api/inbound-email`. Postmark posts the full message including base64 attachments.
+
+**Resend:**
+
+1. Resend → **Inbound** → add `in.<yourdomain>`, verify DNS, and create a rule forwarding all addresses to a webhook: `https://<your-host>/api/inbound-email`.
+2. Resend's `email.received` webhook carries message metadata only. The payload this route accepts is the *full retrieved email* (attachments with inline base64 `content`), so put a tiny passthrough in front that calls Resend's retrieve-email API and re-posts, or use Postmark. `scripts/dev-inbound-email.mjs` shows the accepted shape.
+
+**Shared secret (recommended in production):** set `INBOUND_EMAIL_SECRET` and
+append `?secret=<value>` to the webhook URL (or send header
+`x-inbound-secret`). Unknown workspace slugs return `200` with
+`{ ok: false, reason: "unknown_workspace" }` so providers don't retry forever.
+
+## LLM pipeline
+
+Classification (`classify-v1`) then per-type extraction with Zod schemas and
+per-field confidence (`pm-statement-v1`, `bank-statement-v1`, `invoice-v1`,
+`lease-v1`, `insurance-v1`, `listing-v1`). The LLM **classifies and extracts
+only — it never computes finance numbers**; all math stays in `src/finance/`.
+
+- **Provider selection:** `AI_GATEWAY_API_KEY` → Vercel AI Gateway (model `APEX_LLM_MODEL`, default `anthropic/claude-sonnet-5`); else `ANTHROPIC_API_KEY` → direct Anthropic; else the **deterministic mock provider** (`mock-deterministic-v1`), a rule-based parser used by tests and CI so no credentials are ever needed.
+- **Every call is logged** to `llm_calls`: prompt version, model, tokens, cost (micro-dollars, `llm-pricing-v1` table in `src/lib/llm/index.ts`), sha256 of the canonical output, latency, status.
+- **Review threshold:** any field below `EXTRACTION_REVIEW_THRESHOLD` (default 0.85) sends the extraction to `/verify`; the rest stay `pending` for reconciliation (weeks 5–6).
+- Golden-file tests pin the mock provider's output for synthetic AppFolio/Buildium/Propertyware-style PM statements and a bank statement (`fixtures/` → `src/lib/llm/__golden__/`). Regenerate after intentional parser changes with `npx vitest run --update`.
+
+## Document storage
+
+`BLOB_READ_WRITE_TOKEN` set → Vercel Blob **private** store; unset → local disk
+under `.data/files` (gitignored; override with `APEX_STORAGE_DIR`).
+`documents.storage_key` records which backend wrote each file (`blob:` /
+`disk:` prefix), so reads keep working if the environment changes. Files are
+served back through `/api/documents/[id]/file`. Duplicates (same workspace +
+sha256) are detected and return the existing document.
+
 ## Project layout
 
 ```
 src/
-  app/                  # landing page + /api/waitlist
-  components/           # shadcn/ui primitives + WaitlistForm
-  finance/              # deterministic finance engine (pure TS, no LLM, no I/O)
-    v1.ts               # finance-v1 formula set
-    v1.test.ts          # known-answer tests
+  app/
+    page.tsx + api/waitlist/   # landing page + waitlist capture
+    (internal)/                # internal R0 tooling (pre-auth)
+      upload/                  #   /upload — document upload + recent documents
+      verify/                  #   /verify — low-confidence extraction queue
+    api/documents/             #   POST upload, GET [id]/file (source download)
+    api/inbound-email/         #   POST Resend/Postmark-style webhook
+  components/                  # shadcn/ui primitives + WaitlistForm
+  finance/                     # deterministic finance engine (pure TS, no LLM, no I/O)
   lib/
-    db/schema.ts        # canonical model: 22 workspace-scoped tables + waitlist
-    db/index.ts         # lazy postgres.js client (safe to import at build time)
-drizzle/                # generated SQL migrations
-docker-compose.yml      # local Postgres
+    db/schema.ts               # canonical model: 23 workspace-scoped tables + waitlist
+    llm/                       # provider selection, mock provider, Zod schemas, logging
+    ingest/                    # store → classify → extract pipeline
+    storage.ts                 # Vercel Blob / local-disk file storage
+    inbound-email.ts           # webhook payload normalization + alias parsing
+    workspace.ts               # pre-auth active-workspace resolution
+    audit.ts                   # audit_log writer
+fixtures/                      # synthetic statements (tests + dev script)
+scripts/                       # seed-demo, dev-inbound-email, e2e-inbound (.mjs, zero deps)
+drizzle/                       # generated SQL migrations
+docker-compose.yml             # local Postgres
 ```
 
 ### Conventions that matter
@@ -85,4 +158,4 @@ Everything above runs with zero cloud accounts. Do these when we're ready for a 
 
 ## What intentionally isn't here yet
 
-Auth enforcement (schema-ready only), ingestion pipeline, reconciliation/exceptions engines, approval queue UI, billing. See the master plan for the 26-week sequence.
+Auth enforcement (schema-ready only — internal pages operate on the active workspace, see `src/lib/workspace.ts`), PDF text extraction (binary documents are classified by filename/context and land in `/verify` low-confidence until the real provider or a PDF parser handles them), durable job execution (pipeline runs inline in the request; Vercel Workflow replaces that in R1), reconciliation/exceptions engines, approval queue UI, billing. See the master plan for the 26-week sequence.

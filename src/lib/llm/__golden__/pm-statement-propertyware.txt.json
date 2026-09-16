@@ -1,0 +1,59 @@
+{
+  "classification": {
+    "confidence": 0.95,
+    "kind": "pm_statement",
+    "rationale": "mock: keyword score 10",
+  },
+  "extraction": {
+    "fieldConfidence": {
+      "beginningBalanceCents": 0.97,
+      "endingBalanceCents": 0.97,
+      "lines": 0.75,
+      "managementFeeCents": 0.8,
+      "ownerDrawCents": 0.8,
+      "periodEnd": 0.98,
+      "periodStart": 0.98,
+      "pmCompanyName": 0.9,
+      "propertyAddress": 0.95,
+    },
+    "fields": {
+      "beginningBalanceCents": 204000,
+      "endingBalanceCents": 204000,
+      "lines": [
+        {
+          "amountCents": 127500,
+          "category": "rent",
+          "date": "2026-03-02",
+          "description": "Tenant - J. Smith Rent payment",
+        },
+        {
+          "amountCents": -12750,
+          "category": "mgmt_fee",
+          "date": "2026-03-06",
+          "description": "Buckeye PM Management fee - 10%",
+        },
+        {
+          "amountCents": -21000,
+          "category": "repair",
+          "date": "2026-03-18",
+          "description": "QuickFix Plumbing Repair - kitchen sink",
+        },
+        {
+          "amountCents": -93750,
+          "category": "other_expense",
+          "date": "2026-03-25",
+          "description": "Owner Distribution to owner",
+        },
+      ],
+      "managementFeeCents": 12750,
+      "ownerDrawCents": 93750,
+      "periodEnd": "2026-03-31",
+      "periodStart": "2026-03-01",
+      "pmCompanyName": "Buckeye Property Management",
+      "propertyAddress": "17 Birch Lane, Columbus, OH 43215",
+    },
+  },
+  "overallConfidence": 0.9,
+  "schemaVersion": "pm-statement-v1",
+  "status": "needs_review",
+}
