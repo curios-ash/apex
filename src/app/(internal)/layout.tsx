@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { SignOutButton } from "@clerk/nextjs";
 import { Landmark } from "lucide-react";
 
-import { getSession, isDevAuthEnabled, type ApexSession } from "@/lib/auth";
+import { getSession, isClerkConfigured, isDevAuthEnabled, type ApexSession } from "@/lib/auth";
 import { devSignOut } from "@/app/sign-in/actions";
 import { Button } from "@/components/ui/button";
 import { getActiveWorkspace } from "@/lib/workspace";
@@ -17,6 +18,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
   } catch {
     workspaceName = null;
   }
+  const clerk = isClerkConfigured();
   const devAuth = isDevAuthEnabled();
 
   return (
@@ -79,15 +81,25 @@ export default async function InternalLayout({ children }: { children: React.Rea
               </span>
             ) : null}
             {session ? (
-              <form action={devSignOut} className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <span className="font-medium text-stone-700">{session.email}</span>
-                <Button type="submit" variant="outline" size="xs">
-                  Sign out
-                </Button>
-              </form>
-            ) : devAuth ? (
+                {session.provider === "clerk" ? (
+                  <SignOutButton>
+                    <Button type="button" variant="outline" size="xs">
+                      Sign out
+                    </Button>
+                  </SignOutButton>
+                ) : (
+                  <form action={devSignOut}>
+                    <Button type="submit" variant="outline" size="xs">
+                      Sign out
+                    </Button>
+                  </form>
+                )}
+              </div>
+            ) : clerk || devAuth ? (
               <Link href="/sign-in" className="font-medium text-emerald-700 hover:underline">
-                Sign in (dev)
+                {clerk ? "Sign in" : "Sign in (dev)"}
               </Link>
             ) : null}
           </div>
@@ -96,7 +108,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
       {session?.provider === "dev" ? (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-center text-xs font-medium text-amber-800">
           DEV AUTH — signed in with the development provider. Not for production; Clerk replaces
-          this (see README).
+          this when keys are present (see README).
         </div>
       ) : null}
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6">{children}</main>

@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getSession } from "@/lib/auth";
+import { getSession, isClerkConfigured } from "@/lib/auth";
 import { DEV_SESSION_COOKIE, encodeDevSession, isDevAuthEnabled } from "@/lib/auth/dev";
 import { writeAuditLog } from "@/lib/audit";
 import { db } from "@/lib/db";
@@ -79,6 +79,9 @@ export async function saveWorkspace(formData: FormData) {
   }
 
   if (!isDevAuthEnabled()) {
+    if (isClerkConfigured()) {
+      fail("workspace", "Sign in first — Clerk creates your workspace on first sign-in.");
+    }
     fail("workspace", "Sign-in is disabled — set APEX_DEV_AUTH_ENABLED to create a workspace here.");
   }
 

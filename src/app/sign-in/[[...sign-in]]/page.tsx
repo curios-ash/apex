@@ -1,19 +1,44 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SignIn } from "@clerk/nextjs";
 import { Landmark } from "lucide-react";
 
-import { getSession, isDevAuthEnabled } from "@/lib/auth";
+import { getSession, isClerkConfigured, isDevAuthEnabled } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { workspaces } from "@/lib/db/schema";
 
-import { SignInForm } from "./sign-in-form";
+import { SignInForm } from "../sign-in-form";
 
 export const dynamic = "force-dynamic";
 
-// Dev-mode sign-in. Gated behind APEX_DEV_AUTH_ENABLED — when the flag is
-// off this route does not exist. Clerk replaces this page entirely (see
-// src/lib/auth/clerk.ts and the README).
+// Production: Clerk <SignIn /> when keys are present.
+// Local/dev: email + workspace picker gated behind APEX_DEV_AUTH_ENABLED.
+// With neither Clerk nor the flag, this route 404s.
 export default async function SignInPage() {
+  if (isClerkConfigured()) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-stone-50 px-4 text-stone-900">
+        <div className="w-full max-w-md">
+          <div className="mb-6 flex items-center justify-center gap-2 font-semibold tracking-tight">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-700 text-white">
+              <Landmark className="size-4" aria-hidden />
+            </span>
+            Apex
+          </div>
+          <SignIn
+            routing="path"
+            path="/sign-in"
+            fallbackRedirectUrl="/onboarding"
+            signUpUrl="/sign-in"
+          />
+          <p className="mt-4 text-center text-sm text-stone-500">
+            Magic link or Google — same account for the whole workspace.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isDevAuthEnabled()) notFound();
 
   const session = await getSession();
@@ -41,7 +66,7 @@ export default async function SignInPage() {
           </div>
           <p className="mt-1 text-sm text-stone-500">
             No password — pick a workspace and any email. This sign-in exists for local
-            development and the invite-only beta environment; production uses Clerk.
+            development; production uses Clerk.
           </p>
 
           {session ? (

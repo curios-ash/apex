@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
 
-import { getSession, isDevAuthEnabled } from "@/lib/auth";
+import { getSession, isClerkConfigured, isDevAuthEnabled } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import {
@@ -49,7 +49,7 @@ export default async function OnboardingPage({
   const { step: stepParam, property: propertyParam, error } = await searchParams;
   const session = await getSession();
   // Workspace creation needs a provider that can establish a session.
-  if (!session && !isDevAuthEnabled()) notFound();
+  if (!session && !isDevAuthEnabled() && !isClerkConfigured()) notFound();
 
   const workspace = await getActiveWorkspace();
   const step: StepId = STEPS.some((s) => s.id === stepParam) ? (stepParam as StepId) : "workspace";

@@ -186,24 +186,31 @@ thresholds — one reminder per obligation per threshold, idempotent across
 re-runs (a rejected reminder is not re-drafted). A **Check for due
 reminders** button on `/calendar` runs the same path manually.
 
-## Auth: dev sign-in now, Clerk when provisioned
+## Auth: Clerk in production, dev sign-in locally
 
 `src/lib/auth/` is the single integration point for identity. Every page and
-action resolves the caller through `getSession()`, which dispatches to a
-provider: **Clerk** once its keys exist (the production choice — stubbed in
-`src/lib/auth/clerk.ts` with the exact wiring points), otherwise the **dev
-provider** when `APEX_DEV_AUTH_ENABLED=true`.
+action resolves the caller through `getSession()`, which prefers **Clerk**
+when `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` + `CLERK_SECRET_KEY` are set, then
+falls back to the **dev provider** when `APEX_DEV_AUTH_ENABLED=true`.
 
-The dev provider is how the app is usable end-to-end today: `/sign-in` takes
-an email and a workspace (no password), sets an HMAC-signed httpOnly cookie
-(`apex_dev_session`, 30 days), and every internal page becomes
-session-aware — the header shows the signed-in email and workspace with a
-sign-out button, plus an amber DEV AUTH banner so nobody mistakes it for
-production. With no session (or the flag off), the internal pages fall back
-to the pre-auth workspace resolution (`APEX_WORKSPACE_SLUG` / oldest
-workspace), so webhooks, crons, and the older e2e scripts are unaffected.
-`/sign-in` and workspace creation 404 when the flag is off. Set
-`APEX_DEV_AUTH_SECRET` to override the well-known dev signing secret.
+**Clerk (production).** `@clerk/nextjs` wraps the root layout in
+`ClerkProvider`, `src/proxy.ts` runs `clerkMiddleware` and protects internal
+app routes (`/upload`, `/review`, `/onboarding`, …). Public surfaces stay
+open: `/`, `/audit`, `/share/*`, waitlist, and webhook/cron/inbound APIs.
+`/sign-in` renders Clerk’s `<SignIn />` (magic link + Google). First-seen
+Clerk users get a workspace + owner row in one transaction
+(`users.external_auth_id` = Clerk user id); an existing `users.email` is
+linked instead of duplicated.
+
+**Dev provider (local without Clerk keys).** `/sign-in` takes an email and a
+workspace (no password), sets an HMAC-signed httpOnly cookie
+(`apex_dev_session`, 30 days), and internal pages become session-aware —
+header shows email/workspace with sign-out, plus an amber DEV AUTH banner.
+With no session (or the flag off), pages fall back to pre-auth workspace
+resolution (`APEX_WORKSPACE_SLUG` / oldest workspace), so webhooks, crons,
+and older e2e scripts are unaffected. `/sign-in` 404s when neither Clerk
+keys nor the flag are set. Set `APEX_DEV_AUTH_SECRET` to override the
+well-known dev signing secret. Never enable the flag in production.
 
 One login per workspace for now: `users.email` is globally unique and there
 is no memberships table yet, so a second workspace means a second email.
@@ -329,7 +336,7 @@ sha256) are detected and return the existing document.
 src/
   app/
     page.tsx + api/waitlist/   # landing page + waitlist capture
-    sign-in/                   # /sign-in — dev-mode sign-in (APEX_DEV_AUTH_ENABLED only)
+    sign-in/                   # /sign-in — Clerk <SignIn /> when keys set; else APEX_DEV_AUTH_ENABLED dev form
     (internal)/                # internal R0 tooling (session-aware)
       upload/                  #   /upload — document upload + recent documents
       verify/                  #   /verify — low-confidence extraction queue
@@ -406,22 +413,38 @@ Everything above runs with zero cloud accounts. Do these when we're ready for a 
 
 **Recommendation: Clerk.** Apex sells to individual landlords, not enterprises — we need magic-link + Google sign-in and low-friction UX, not SAML/SSO. Clerk's Next.js App Router integration is the fastest to ship, its free tier (10k MAU) covers the beta, and its prebuilt components match our shadcn setup. WorkOS becomes interesting only if we later sell into PM companies or funds that demand SSO; switching cost is contained because the schema keeps `users.external_auth_id` provider-agnostic.
 
-The app already speaks the session contract (`src/lib/auth/types.ts`); the
-dev provider proves the flow. To go live on Clerk:
+**Wiring is in the repo** (`@clerk/nextjs`, `ClerkProvider`, `src/proxy.ts`,
+`getClerkSession()`, Clerk `/sign-in`). Keys come from the Vercel Marketplace
+install. The **dev provider stays** for local machines without Clerk keys.
 
-1. Vercel dashboard → **Marketplace** → **Clerk** → install, link to the project (injects `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY`).
-2. In the Clerk dashboard: enable **Email magic link** and **Google** only (no password, no Gmail scopes).
-3. `npm install @clerk/nextjs`, wrap `src/app/layout.tsx` in `ClerkProvider`.
-4. Implement `getClerkSession()` in `src/lib/auth/clerk.ts` (the four
-   integration points are listed in that file): Clerk's `auth()` → map the
-   Clerk user id to `users.external_auth_id` → join the workspace through
-   `users`. On a first-seen Clerk user, create workspace + user row in one
-   transaction (same shape as `devSignIn` in `src/app/sign-in/actions.ts`).
-5. Replace `/sign-in` with Clerk's `<SignIn />` (or redirect to the Clerk
-   hosted page), then delete the dev provider: `src/lib/auth/dev.ts`, the
-   sign-in route, and `APEX_DEV_AUTH_ENABLED`. `getActiveWorkspace()` needs
-   no changes — it already consumes `getSession()`.
-6. WorkOS alternative: same flow via the WorkOS AuthKit marketplace listing if we ever need SAML.
+**Clerk dashboard checklist (Ashwin):**
+
+1. Vercel dashboard → **Marketplace** → **Clerk** → install/link (injects
+   `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY`) — already done
+   if the production deploy has those env vars.
+2. Enable **Email magic link** and **Google** only (no password, no Gmail scopes).
+3. **Paths → Allowlist / Redirect URLs** (Clerk dashboard → Configure →
+   Domains / Paths, wording varies by Clerk UI version). Add:
+   - **Allowed redirect URLs / redirect allowlist:**
+     - `http://localhost:3000/sign-in`
+     - `http://localhost:3000/onboarding`
+     - `http://localhost:4319/sign-in` (and `/onboarding`) if you use that port
+     - `https://apex-p4id98452-curiosityventures.vercel.app/sign-in`
+     - `https://apex-p4id98452-curiosityventures.vercel.app/onboarding`
+     - Your production custom domain equivalents when you add one
+     - Preview URLs: either add each, or use a wildcard pattern if your Clerk
+       plan allows (`https://*.vercel.app/sign-in`, etc.)
+   - **Allowed origins / authorized origins:**
+     - `http://localhost:3000`
+     - `http://localhost:4319`
+     - `https://apex-p4id98452-curiosityventures.vercel.app`
+     - Production + preview origins as above
+4. Optional env (Vercel + local `.env`): `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`,
+   `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/onboarding` (and the
+   sign-up equivalents pointing at `/sign-in` / `/onboarding`).
+5. Redeploy after dashboard changes; smoke-test `/sign-in` → magic link →
+   `/onboarding` on the Vercel URL.
+6. WorkOS alternative: same session contract via WorkOS AuthKit if we ever need SAML.
 
 ### 3. Vercel Blob (statement/PDF storage)
 
@@ -432,4 +455,4 @@ dev provider proves the flow. To go live on Clerk:
 
 ## What intentionally isn't here yet
 
-Production auth (Clerk is provisioned and wired per the steps above; until then the dev provider covers it), multi-workspace membership (one login per workspace), OCR for scanned PDFs (text-layer PDFs extract locally via pdf.js; scans fall back to the real LLM provider's file input or the verify queue), durable job execution (pipeline runs inline in the request; Vercel Workflow replaces that in R1), SMTP sending for approved drafts (v1.1 — approval currently unlocks mailto/copy only), and plan enforcement (billing state is recorded but gates nothing yet — dossier/audit caps land with the public launch). See the master plan for the 26-week sequence.
+Multi-workspace membership (one login per workspace), OCR for scanned PDFs (text-layer PDFs extract locally via pdf.js; scans fall back to the real LLM provider's file input or the verify queue), durable job execution (pipeline runs inline in the request; Vercel Workflow replaces that in R1), SMTP sending for approved drafts (v1.1 — approval currently unlocks mailto/copy only), and plan enforcement (billing state is recorded but gates nothing yet — dossier/audit caps land with the public launch). Clerk is wired in-repo; finish the dashboard redirect/origin allowlist (steps above) before treating production auth as fully live. See the master plan for the 26-week sequence.
