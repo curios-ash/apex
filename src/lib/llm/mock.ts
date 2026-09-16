@@ -1,6 +1,6 @@
 import type { z } from "zod";
 
-import { EXTRACTION_SCHEMAS } from "./schemas";
+import { EXTRACTION_SCHEMAS, transactionCategories } from "./schemas";
 import type {
   ClassifyInput,
   ClassifyOutput,
@@ -109,7 +109,7 @@ export function parseMoneyToCents(raw: string): number | null {
 // Statement line parsing + category hints
 // ---------------------------------------------------------------------------
 
-type Category = (typeof import("./schemas").transactionCategories)[number];
+type Category = (typeof transactionCategories)[number];
 
 interface ParsedLine {
   date: string | null;

@@ -38,10 +38,13 @@ export async function getActiveWorkspace(): Promise<ActiveWorkspace> {
   }
 
   if (!workspace) {
-    const [created] = await db
+    // Layout and page can race this insert on first run — conflict means the
+    // other request won, so re-select.
+    await db
       .insert(workspaces)
       .values({ name: "Demo Workspace", slug: "demo" })
-      .returning();
+      .onConflictDoNothing({ target: workspaces.slug });
+    const [created] = await db.select().from(workspaces).where(eq(workspaces.slug, "demo")).limit(1);
     workspace = created;
   }
 
