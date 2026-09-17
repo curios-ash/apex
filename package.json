@@ -22,7 +22,8 @@
     "e2e:audit": "node scripts/e2e-audit.mjs",
     "e2e:actions": "node scripts/e2e-actions.mjs",
     "e2e:onboarding": "node scripts/e2e-onboarding.mjs",
-    "e2e:buyer": "node scripts/e2e-buyer.mjs"
+    "e2e:buyer": "node scripts/e2e-buyer.mjs",
+    "e2e:portfolio": "node scripts/e2e-portfolio.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.54",
@@ -35,6 +36,7 @@
     "cn": "^0.3.0",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.46.0",
+    "maplibre-gl": "^6.9.1",
     "next": "16.3.5",
     "pdfjs-dist": "^6.3.289",
     "postgres": "^3.4.9",
@@ -46,6 +48,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/geojson": "^7946.0.16",
     "@types/node": "^22.20.3",
     "@types/react": "^19",
     "@types/react-dom": "^19",

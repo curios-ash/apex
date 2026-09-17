@@ -60,6 +60,9 @@ export async function openDealFromPlace(params: {
       longitude: suggestion.longitude,
       placeId: suggestion.geocoder === "manual" ? null : suggestion.placeId,
       geocoder: suggestion.geocoder,
+      county: suggestion.county,
+      neighborhood: suggestion.neighborhood,
+      geoSource: suggestion.geoSource,
       inboundTag: inboundTagFromId(id),
     })
     .returning({ id: properties.id });

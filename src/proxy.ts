@@ -8,6 +8,7 @@ import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server
 
 const INTERNAL_APP_PREFIXES = [
   "/deals",
+  "/portfolio",
   "/upload",
   "/verify",
   "/exceptions",

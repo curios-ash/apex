@@ -50,6 +50,13 @@
       "when": 1789636849771,
       "tag": "0006_buyer_journey",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789679634704,
+      "tag": "0007_portfolio_map",
+      "breakpoints": true
     }
   ]
 }

@@ -56,7 +56,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
         Engine math is {""}
         <span className="font-medium text-[#1c1914]">finance-v1</span>
         . Models extract documents — they never compute NOI, DSCR, or cash-on-cash.{" "}
-        <Link href="/onboarding" className="underline decoration-[#c45c26]/60 underline-offset-2">
+        <Link href="/portfolio" className="underline decoration-[#c45c26]/60 underline-offset-2">
           Already own doors?
         </Link>
       </footer>

@@ -1,3 +1,5 @@
+import { mergePublicGeo } from "@/geo/public-geo";
+
 import { formatAddress, parseFreeformAddress, type ParsedAddress } from "./address";
 
 export type PlaceSuggestion = {
@@ -6,7 +8,10 @@ export type PlaceSuggestion = {
   address: ParsedAddress;
   latitude: number | null;
   longitude: number | null;
+  county: string | null;
+  neighborhood: string | null;
   geocoder: "mock" | "google" | "manual";
+  geoSource: "mock-census-v1" | "google" | "census";
   matched: boolean;
 };
 
@@ -25,7 +30,10 @@ export const MOCK_PLACES: PlaceSuggestion[] = [
     },
     latitude: 30.2711,
     longitude: -97.7437,
+    county: "Travis County",
+    neighborhood: "Downtown",
     geocoder: "mock",
+    geoSource: "mock-census-v1",
     matched: true,
   },
   {
@@ -40,7 +48,10 @@ export const MOCK_PLACES: PlaceSuggestion[] = [
     },
     latitude: 25.7907,
     longitude: -80.13,
+    county: "Miami-Dade County",
+    neighborhood: "South Beach",
     geocoder: "mock",
+    geoSource: "mock-census-v1",
     matched: true,
   },
   {
@@ -55,7 +66,10 @@ export const MOCK_PLACES: PlaceSuggestion[] = [
     },
     latitude: 41.9033,
     longitude: -87.6656,
+    county: "Cook County",
+    neighborhood: "Wicker Park",
     geocoder: "mock",
+    geoSource: "mock-census-v1",
     matched: true,
   },
   {
@@ -70,7 +84,10 @@ export const MOCK_PLACES: PlaceSuggestion[] = [
     },
     latitude: 39.9536,
     longitude: -75.1744,
+    county: "Philadelphia County",
+    neighborhood: "Rittenhouse",
     geocoder: "mock",
+    geoSource: "mock-census-v1",
     matched: true,
   },
   {
@@ -85,10 +102,103 @@ export const MOCK_PLACES: PlaceSuggestion[] = [
     },
     latitude: 44.0462,
     longitude: -123.022,
+    county: "Lane County",
+    neighborhood: "Downtown",
     geocoder: "mock",
+    geoSource: "mock-census-v1",
+    matched: true,
+  },
+  {
+    placeId: "mock-1200-main-houston",
+    label: "1200 Main Street, Houston, TX 77002",
+    address: {
+      line1: "1200 Main Street",
+      line2: null,
+      city: "Houston",
+      state: "TX",
+      zip: "77002",
+    },
+    latitude: 29.757,
+    longitude: -95.365,
+    county: "Harris County",
+    neighborhood: "Downtown",
+    geocoder: "mock",
+    geoSource: "mock-census-v1",
+    matched: true,
+  },
+  {
+    placeId: "mock-301-commerce-ftworth",
+    label: "301 Commerce Street, Fort Worth, TX 76102",
+    address: {
+      line1: "301 Commerce Street",
+      line2: null,
+      city: "Fort Worth",
+      state: "TX",
+      zip: "76102",
+    },
+    latitude: 32.755,
+    longitude: -97.332,
+    county: "Tarrant County",
+    neighborhood: "Downtown",
+    geocoder: "mock",
+    geoSource: "mock-census-v1",
+    matched: true,
+  },
+  {
+    placeId: "mock-4550-central-phoenix",
+    label: "4550 N Central Avenue, Phoenix, AZ 85012",
+    address: {
+      line1: "4550 N Central Avenue",
+      line2: null,
+      city: "Phoenix",
+      state: "AZ",
+      zip: "85012",
+    },
+    latitude: 33.509,
+    longitude: -112.07,
+    county: "Maricopa County",
+    neighborhood: "Midtown",
+    geocoder: "mock",
+    geoSource: "mock-census-v1",
+    matched: true,
+  },
+  {
+    placeId: "mock-1600-pearl-boulder",
+    label: "1600 Pearl Street, Boulder, CO 80302",
+    address: {
+      line1: "1600 Pearl Street",
+      line2: null,
+      city: "Boulder",
+      state: "CO",
+      zip: "80302",
+    },
+    latitude: 40.017,
+    longitude: -105.278,
+    county: "Boulder County",
+    neighborhood: "Downtown",
+    geocoder: "mock",
+    geoSource: "mock-census-v1",
     matched: true,
   },
 ];
+
+export function attachPublicGeo(suggestion: PlaceSuggestion): PlaceSuggestion {
+  const geo = mergePublicGeo(suggestion.address, {
+    county: suggestion.county,
+    neighborhood: suggestion.neighborhood,
+    latitude: suggestion.latitude,
+    longitude: suggestion.longitude,
+    source: suggestion.geocoder === "google" ? "google" : suggestion.geoSource,
+  });
+  return {
+    ...suggestion,
+    county: geo.county,
+    neighborhood: geo.neighborhood,
+    latitude: geo.latitude,
+    longitude: geo.longitude,
+    geoSource: geo.source,
+  };
+}
 
 function scorePlace(query: string, place: PlaceSuggestion): number {
   const q = query.toLowerCase();
@@ -116,15 +226,18 @@ export function mockPlaceById(placeId: string): PlaceSuggestion | null {
 
 export function freeTextSuggestion(query: string): PlaceSuggestion {
   const address = parseFreeformAddress(query);
-  return {
+  return attachPublicGeo({
     placeId: `manual:${encodeURIComponent(query.trim().slice(0, 80))}`,
     label: formatAddress(address),
     address,
     latitude: null,
     longitude: null,
+    county: null,
+    neighborhood: null,
     geocoder: "manual",
+    geoSource: "mock-census-v1",
     matched: false,
-  };
+  });
 }
 
 export function googleMapsKey(): string | null {
@@ -172,15 +285,18 @@ function suggestionFromGoogleDetails(
     state: component(comps, "administrative_area_level_1", true) ?? "NA",
     zip: component(comps, "postal_code") ?? "00000",
   };
-  return {
+  return attachPublicGeo({
     placeId,
     label: result.formatted_address ?? formatAddress(address),
     address,
     latitude: result.geometry?.location?.lat ?? null,
     longitude: result.geometry?.location?.lng ?? null,
+    county: component(comps, "administrative_area_level_2"),
+    neighborhood: component(comps, "neighborhood") ?? component(comps, "sublocality"),
     geocoder: "google",
+    geoSource: "google",
     matched: true,
-  };
+  });
 }
 
 export async function lookupPlaces(query: string): Promise<{
@@ -192,7 +308,7 @@ export async function lookupPlaces(query: string): Promise<{
 
   const key = googleMapsKey();
   if (!key) {
-    const matches = searchMockPlaces(q);
+    const matches = searchMockPlaces(q).map(attachPublicGeo);
     return { provider: "mock", suggestions: [...matches, freeTextSuggestion(q)] };
   }
 
@@ -202,7 +318,7 @@ export async function lookupPlaces(query: string): Promise<{
   autoUrl.searchParams.set("key", key);
   const autoRes = await fetch(autoUrl);
   if (!autoRes.ok) {
-    const matches = searchMockPlaces(q);
+    const matches = searchMockPlaces(q).map(attachPublicGeo);
     return { provider: "mock", suggestions: [...matches, freeTextSuggestion(q)] };
   }
   const autoJson = (await autoRes.json()) as { predictions?: GooglePrediction[] };
@@ -218,7 +334,9 @@ export async function lookupPlaces(query: string): Promise<{
     if (!detailsRes.ok) continue;
     const details = (await detailsRes.json()) as GoogleDetails;
     suggestions.push(
-      suggestionFromGoogleDetails(prediction.place_id, details, prediction.description ?? q),
+      attachPublicGeo(
+        suggestionFromGoogleDetails(prediction.place_id, details, prediction.description ?? q),
+      ),
     );
   }
   if (suggestions.length === 0) {
@@ -229,6 +347,6 @@ export async function lookupPlaces(query: string): Promise<{
 
 export function resolvePlace(placeId: string, query: string): PlaceSuggestion {
   const mock = mockPlaceById(placeId);
-  if (mock) return mock;
+  if (mock) return attachPublicGeo(mock);
   return freeTextSuggestion(query);
 }

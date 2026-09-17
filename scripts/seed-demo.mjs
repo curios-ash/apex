@@ -27,9 +27,20 @@ let [property] = await sql`
 `;
 if (!property) {
   [property] = await sql`
-    insert into properties (workspace_id, name, address_line1, city, state, zip, property_type, latitude, longitude, geocoder, inbound_tag)
-    values (${workspace.id}, '421 Maple Street', '421 Maple Street', 'Austin', 'TX', '78701', 'duplex', 30.2711, -97.7437, 'mock', substring(replace(gen_random_uuid()::text, '-', ''), 1, 8))
+    insert into properties (workspace_id, name, address_line1, city, state, zip, property_type, latitude, longitude, geocoder, county, neighborhood, geo_source, purchase_price_cents, inbound_tag)
+    values (${workspace.id}, '421 Maple Street', '421 Maple Street', 'Austin', 'TX', '78701', 'duplex', 30.2711, -97.7437, 'mock', 'Travis County', 'Downtown', 'mock-census-v1', 28900000, substring(replace(gen_random_uuid()::text, '-', ''), 1, 8))
     returning id
+  `;
+} else {
+  await sql`
+    update properties
+    set county = coalesce(county, 'Travis County'),
+        neighborhood = coalesce(neighborhood, 'Downtown'),
+        geo_source = coalesce(geo_source, 'mock-census-v1'),
+        latitude = coalesce(latitude, 30.2711),
+        longitude = coalesce(longitude, -97.7437),
+        purchase_price_cents = coalesce(purchase_price_cents, 28900000)
+    where id = ${property.id}
   `;
 }
 await sql`
@@ -38,6 +49,125 @@ await sql`
   where id = ${property.id} and inbound_tag is null
 `;
 
+const PORTFOLIO_SEED = [
+  {
+    name: "88 Ocean Avenue",
+    line1: "88 Ocean Avenue",
+    city: "Miami Beach",
+    state: "FL",
+    zip: "33139",
+    type: "fourplex",
+    lat: 25.7907,
+    lng: -80.13,
+    county: "Miami-Dade County",
+    neighborhood: "South Beach",
+    price: 89000000,
+    units: 4,
+  },
+  {
+    name: "1500 W Division Street",
+    line1: "1500 W Division Street",
+    city: "Chicago",
+    state: "IL",
+    zip: "60642",
+    type: "triplex",
+    lat: 41.9033,
+    lng: -87.6656,
+    county: "Cook County",
+    neighborhood: "Wicker Park",
+    price: 54000000,
+    units: 3,
+  },
+  {
+    name: "1200 Main Street",
+    line1: "1200 Main Street",
+    city: "Houston",
+    state: "TX",
+    zip: "77002",
+    type: "sfr",
+    lat: 29.757,
+    lng: -95.365,
+    county: "Harris County",
+    neighborhood: "Downtown",
+    price: 27500000,
+    units: 1,
+  },
+  {
+    name: "301 Commerce Street",
+    line1: "301 Commerce Street",
+    city: "Fort Worth",
+    state: "TX",
+    zip: "76102",
+    type: "duplex",
+    lat: 32.755,
+    lng: -97.332,
+    county: "Tarrant County",
+    neighborhood: "Downtown",
+    price: 31000000,
+    units: 2,
+  },
+  {
+    name: "4550 N Central Avenue",
+    line1: "4550 N Central Avenue",
+    city: "Phoenix",
+    state: "AZ",
+    zip: "85012",
+    type: "sfr",
+    lat: 33.509,
+    lng: -112.07,
+    county: "Maricopa County",
+    neighborhood: "Midtown",
+    price: 41000000,
+    units: 1,
+  },
+  {
+    name: "1600 Pearl Street",
+    line1: "1600 Pearl Street",
+    city: "Boulder",
+    state: "CO",
+    zip: "80302",
+    type: "condo",
+    lat: 40.017,
+    lng: -105.278,
+    county: "Boulder County",
+    neighborhood: "Downtown",
+    price: 62500000,
+    units: 1,
+  },
+];
+
+for (const seed of PORTFOLIO_SEED) {
+  let [row] = await sql`
+    select id from properties
+    where workspace_id = ${workspace.id} and name = ${seed.name}
+    limit 1
+  `;
+  if (!row) {
+    [row] = await sql`
+      insert into properties (
+        workspace_id, name, address_line1, city, state, zip, property_type, status,
+        latitude, longitude, geocoder, county, neighborhood, geo_source, purchase_price_cents, inbound_tag
+      )
+      values (
+        ${workspace.id}, ${seed.name}, ${seed.line1}, ${seed.city}, ${seed.state}, ${seed.zip}, ${seed.type}, 'active',
+        ${seed.lat}, ${seed.lng}, 'mock', ${seed.county}, ${seed.neighborhood}, 'mock-census-v1', ${seed.price},
+        substring(replace(gen_random_uuid()::text, '-', ''), 1, 8)
+      )
+      returning id
+    `;
+  }
+  const existingUnits = await sql`
+    select count(*)::int as n from units where property_id = ${row.id}
+  `;
+  if ((existingUnits[0]?.n ?? 0) === 0) {
+    for (let i = 1; i <= seed.units; i += 1) {
+      await sql`
+        insert into units (workspace_id, property_id, label, status)
+        values (${workspace.id}, ${row.id}, ${"Unit " + i}, 'vacant')
+      `;
+    }
+  }
+}
 
 // PM agreement at 8% of collected income — the demo statements charge 10%,
 // which is what the fee-drift rule catches. The end date (75 days out) feeds
