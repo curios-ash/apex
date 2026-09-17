@@ -16,6 +16,8 @@ const INTERNAL_APP_PREFIXES = [
   "/ledger",
   "/budget",
   "/dossiers",
+  "/evidence",
+  "/export",
   "/activity",
   "/onboarding",
   "/billing",

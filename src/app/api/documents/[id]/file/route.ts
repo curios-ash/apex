@@ -1,18 +1,23 @@
-import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { documents } from "@/lib/db/schema";
 import { readStoredFile } from "@/lib/storage";
+import { getActiveWorkspace } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
 
-// Serves the stored source file for a document (linked from /verify).
-// Pre-auth this is an internal tool; once auth lands it must check the
-// caller's workspace membership.
+// Serves the stored source file for a document (linked from /verify and
+// /evidence). Scoped to the active workspace.
 export async function GET(_request: Request, ctx: RouteContext<"/api/documents/[id]/file">) {
   const { id } = await ctx.params;
-  const rows = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
+  const workspace = await getActiveWorkspace();
+  const rows = await db
+    .select()
+    .from(documents)
+    .where(and(eq(documents.id, id), eq(documents.workspaceId, workspace.id)))
+    .limit(1);
   const doc = rows[0];
   if (!doc || !doc.storageKey) {
     return NextResponse.json({ ok: false, message: "Document not found." }, { status: 404 });

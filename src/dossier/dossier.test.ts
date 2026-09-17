@@ -181,6 +181,31 @@ describe("buildChecklist", () => {
     expect(ids).toContain("verify-insurance");
     // Rent is manual in this deal, so no comp-verification item.
     expect(ids).not.toContain("verify-rent");
+    expect(ids).not.toContain("confirm-comps");
+  });
+
+  it("flags listing rent for comps and treats a comps-sourced rent as confirmed-but-check", () => {
+    const listingRent = fullDeal();
+    listingRent.set("monthly_rent", assumption("monthly_rent", 240_000, "listing", "medium"));
+    const listingIds = buildChecklist({
+      assumptions: listingRent,
+      missingInputs: [],
+      base: null,
+      downside: null,
+    }).map((c) => c.id);
+    expect(listingIds).toContain("verify-rent");
+    expect(listingIds).not.toContain("confirm-comps");
+
+    const compRent = fullDeal();
+    compRent.set("monthly_rent", assumption("monthly_rent", 240_000, "comp", "medium"));
+    const compIds = buildChecklist({
+      assumptions: compRent,
+      missingInputs: [],
+      base: null,
+      downside: null,
+    }).map((c) => c.id);
+    expect(compIds).toContain("confirm-comps");
+    expect(compIds).not.toContain("verify-rent");
   });
 
   it("does not flag manual-sourced values", () => {

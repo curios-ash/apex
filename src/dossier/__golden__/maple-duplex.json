@@ -158,7 +158,7 @@
       "severity": "critical",
     },
     {
-      "detail": "The rent figure comes from the listing or a default, not your own comps. Check 3 comparable rentals before trusting the pro forma.",
+      "detail": "The rent figure comes from the listing or a default, not your own comps. Pull RentCast comps (or enter a manual rent) before trusting the pro forma.",
       "id": "verify-rent",
       "label": "Verify the rent with comps",
       "severity": "important",

@@ -12,6 +12,7 @@ import {
   reviseDossier,
   shareDossier,
   unshareDossier,
+  applyCompsToDossier,
 } from "@/lib/dossier/run";
 import { getActiveWorkspace } from "@/lib/workspace";
 
@@ -132,4 +133,25 @@ export async function unshare(formData: FormData) {
   const dossierId = String(formData.get("dossierId") ?? "");
   await unshareDossier({ workspaceId: workspace.id, userId: workspace.ownerUserId, dossierId });
   revalidatePath(`/dossiers/${dossierId}`);
+}
+
+export async function pullComps(formData: FormData) {
+  const workspace = await getActiveWorkspace();
+  const dossierId = String(formData.get("dossierId") ?? "");
+  const rawMode = String(formData.get("mode") ?? "fill_if_unverified");
+  const mode =
+    rawMode === "overwrite" || rawMode === "display_only" || rawMode === "fill_if_unverified"
+      ? rawMode
+      : "fill_if_unverified";
+  const result = await applyCompsToDossier({
+    workspaceId: workspace.id,
+    userId: workspace.ownerUserId,
+    dossierId,
+    mode,
+  });
+  if (!result.ok) {
+    redirect(`/dossiers/${dossierId}?compsError=${encodeURIComponent(result.message.slice(0, 180))}`);
+  }
+  revalidatePath(`/dossiers/${dossierId}`);
+  redirect(`/dossiers/${dossierId}?comps=${result.appliedRent ? "applied" : "fetched"}`);
 }

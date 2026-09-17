@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { and, desc, eq } from "drizzle-orm";
 
+import { EvidenceList } from "@/components/evidence-list";
 import { db } from "@/lib/db";
 import {
   actualLines,
@@ -8,7 +9,6 @@ import {
   exceptions,
   monthlyReviews,
   properties,
-  type ExceptionEvidence,
 } from "@/lib/db/schema";
 import { formatCents } from "@/lib/format";
 import { isIncomeCategory } from "@/reconcile";
@@ -94,7 +94,11 @@ export default async function ReviewPage({
         <h1 className="text-2xl font-semibold tracking-tight">Monthly Owner Review</h1>
         <p className="mt-1 max-w-2xl text-sm text-stone-600">
           Budget vs. actual, exceptions with evidence, and a narrative that cites exception IDs
-          and uses only engine-computed figures.
+          and uses only engine-computed figures.{" "}
+          <Link href={`/export?property=${selectedProperty.id}${selectedMonth ? `&month=${selectedMonth}` : ""}`} className="font-medium text-emerald-700 underline">
+            Export this month for a CPA
+          </Link>
+          .
         </p>
       </div>
 
@@ -347,22 +351,9 @@ async function ReviewDetail(props: {
                   </div>
                 </div>
                 <p className="mt-2 text-sm text-stone-800">{ex.summary}</p>
-                <ul className="mt-2 space-y-1 text-xs text-stone-500">
-                  {(ex.evidence as ExceptionEvidence[]).map((item, i) => (
-                    <li key={i} className="flex flex-wrap items-center gap-2">
-                      {item.documentId ? (
-                        <a
-                          href={`/api/documents/${item.documentId}/file`}
-                          target="_blank"
-                          className="font-medium text-emerald-800 hover:underline"
-                        >
-                          source document
-                        </a>
-                      ) : null}
-                      {item.note ? <span>{item.note}</span> : null}
-                    </li>
-                  ))}
-                </ul>
+                <div className="mt-2">
+                  <EvidenceList evidence={ex.evidence} exceptionId={ex.id} />
+                </div>
               </div>
             ))}
           </div>

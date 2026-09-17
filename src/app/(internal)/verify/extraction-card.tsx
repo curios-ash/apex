@@ -50,6 +50,12 @@ export function ExtractionCard(props: {
           >
             {props.filename}
           </a>
+          <a
+            href={`/evidence?documentId=${props.documentId}`}
+            className="ml-2 text-xs font-medium text-stone-500 hover:text-emerald-800 hover:underline"
+          >
+            evidence viewer
+          </a>
           <span className="ml-2 rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-700">
             {props.schemaVersion}
           </span>

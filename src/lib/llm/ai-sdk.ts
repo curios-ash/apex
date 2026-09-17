@@ -13,10 +13,16 @@ import type {
   LlmCallMeta,
 } from "./types";
 
-// Real provider: Vercel AI SDK through AI Gateway (preferred) or direct
-// Anthropic. Selected in index.ts — this module is only constructed when a
-// credential is present. The LLM classifies and extracts only; it never
-// computes finance numbers.
+// Real provider: Vercel AI SDK through AI Gateway (preferred) or optional
+// direct Anthropic. Selected in index.ts — this module is only constructed
+// when a credential is present. The LLM classifies and extracts only; it
+// never computes finance numbers.
+//
+// Extraction default (when AI_GATEWAY_API_KEY is set): Gemini 3.1 Flash Lite.
+// Upgrade only if the verify queue is too noisy: google/gemini-3.1-flash, or
+// anthropic/claude-sonnet-5. Anthropic is not required.
+
+export const DEFAULT_EXTRACTION_MODEL = "google/gemini-3.1-flash-lite";
 
 export const CLASSIFY_PROMPT_VERSION = "classify-v1";
 
@@ -40,6 +46,10 @@ export function resolveModelFor(envVar: string, fallbackModelId: string): Resolv
     return { provider: "gateway", modelId, model: gateway(modelId) };
   }
   if (process.env.ANTHROPIC_API_KEY) {
+    // Direct Anthropic cannot serve Google slugs. The product default is
+    // Gemini via Gateway; without a Gateway key, Anthropic is optional and
+    // only used when the model id is an Anthropic model.
+    if (modelId.startsWith("google/")) return null;
     const directId = modelId.replace(/^anthropic\//, "");
     return { provider: "anthropic", modelId: directId, model: anthropic(directId) };
   }
@@ -47,7 +57,7 @@ export function resolveModelFor(envVar: string, fallbackModelId: string): Resolv
 }
 
 export function resolveModel(): ResolvedModel | null {
-  return resolveModelFor("APEX_LLM_MODEL", "anthropic/claude-sonnet-5");
+  return resolveModelFor("APEX_LLM_MODEL", DEFAULT_EXTRACTION_MODEL);
 }
 
 function usageTokens(usage: unknown): { input: number | null; output: number | null } {
