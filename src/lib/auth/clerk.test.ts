@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { isClerkConfigured } from "./clerk";
+import { isClerkConfigured } from "./configured";
 
 afterEach(() => {
   delete process.env.CLERK_SECRET_KEY;
@@ -21,5 +21,11 @@ describe("isClerkConfigured", () => {
     process.env.CLERK_SECRET_KEY = "sk_test";
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test";
     expect(isClerkConfigured()).toBe(true);
+  });
+
+  it("treats whitespace-only keys as missing", () => {
+    process.env.CLERK_SECRET_KEY = "   ";
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test";
+    expect(isClerkConfigured()).toBe(false);
   });
 });

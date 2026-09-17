@@ -463,8 +463,8 @@ Everything above runs with zero cloud accounts. Do these when we're ready for a 
 
 1. Vercel dashboard → project → **Storage** tab → **Create Database** → **Neon Serverless Postgres**.
 2. Accept the default region; link it to the project. Vercel injects `DATABASE_URL` into all environments automatically.
-3. Run migrations against Neon from your machine: `DATABASE_URL=<neon-url> npm run db:migrate` (the URL is under Storage → `.env.local` tab).
-4. Local dev keeps using docker-compose Postgres; Neon is for preview/prod.
+3. `npm run build` on Vercel runs `drizzle-kit migrate` against that `DATABASE_URL` so preview/prod pick up new tables (deal events, `properties.latitude`, …). You can still migrate from your machine: `DATABASE_URL=<neon-url> npm run db:migrate`.
+4. Local dev keeps using docker-compose Postgres; Neon is for preview/prod. Do not point production at `localhost`.
 
 ### 2. Auth — Clerk (recommended) or WorkOS
 

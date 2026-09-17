@@ -1,20 +1,25 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
+import {
+  assertDatabaseUrlForRuntime,
+  postgresClientOptions,
+  resolveDatabaseUrl,
+} from "./postgres-options";
 import * as schema from "./schema";
 
-export const DEFAULT_DATABASE_URL = "postgres://postgres:postgres@localhost:5432/apex";
+export { DEFAULT_DATABASE_URL } from "./postgres-options";
 
-const connectionString = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
+const connectionString = resolveDatabaseUrl();
+assertDatabaseUrlForRuntime(connectionString);
 
-// Reuse the connection across Next.js dev hot reloads. postgres.js connects
-// lazily, so importing this module never touches the database by itself.
+// Reuse the client across hot reloads *and* warm Vercel isolates. postgres.js
+// still connects lazily; importing this module does not open a socket.
 const globalForDb = globalThis as unknown as { sql?: postgres.Sql };
 
-const sql = globalForDb.sql ?? postgres(connectionString);
-if (process.env.NODE_ENV !== "production") {
-  globalForDb.sql = sql;
-}
+const sql =
+  globalForDb.sql ?? postgres(connectionString, postgresClientOptions(connectionString));
+globalForDb.sql = sql;
 
 export const db = drizzle(sql, { schema });
 export { schema };

@@ -28,7 +28,7 @@ export default async function SignInPage() {
           <SignIn
             routing="path"
             path="/sign-in"
-            fallbackRedirectUrl="/onboarding"
+            fallbackRedirectUrl="/deals"
             signUpUrl="/sign-in"
           />
           <p className="mt-4 text-center text-sm text-stone-500">
