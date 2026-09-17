@@ -1,6 +1,12 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 
 import {
+  rentAssumptionFromComps,
+  rentIsUnverified,
+  shouldApplyRent,
+  type ApplyCompsMode,
+} from "@/comps";
+import {
   ASSUMPTION_UNITS,
   buildDossierPayload,
   defaultDownsideParams,
@@ -15,6 +21,7 @@ import {
 import { writeAuditLog } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { assumptions, dossiers } from "@/lib/db/schema";
+import { fetchCompSet } from "@/lib/rentcast/client";
 
 // DB binding for the underwriter: assumption rows (versioned, sourced,
 // confidence-graded) in, dossier payload out. All math happens in
@@ -129,28 +136,34 @@ function withDefaults(
 
 type AssumptionRow = typeof assumptions.$inferSelect;
 
+function sourceFromDb(raw: string): AssumptionValue["source"] {
+  if (raw.startsWith("listing")) return "listing";
+  if (raw.startsWith("default")) return "default";
+  if (raw.startsWith("comp")) return "comp";
+  return "manual";
+}
+
 function rowToValue(row: AssumptionRow): AssumptionValue {
   return {
     key: row.key as AssumptionKey,
     valueNum: row.valueNum,
     valueText: row.valueText,
     unit: (row.unit ?? "text") as AssumptionValue["unit"],
-    source: row.source.startsWith("listing")
-      ? "listing"
-      : row.source.startsWith("default")
-        ? "default"
-        : "manual",
+    source: sourceFromDb(row.source),
     confidence: row.confidence,
+    sourceRef: row.source,
   };
 }
 
 function dbSource(value: AssumptionValue, documentId: string | null): string {
+  if (value.sourceRef) return value.sourceRef;
   if (value.source === "listing") {
     return documentId ? `listing:document:${documentId}` : "listing";
   }
   if (value.source === "default") {
     return DEFAULT_SOURCE_LABELS[value.key] ?? "default";
   }
+  if (value.source === "comp") return "comp";
   return "manual";
 }
 
@@ -197,13 +210,28 @@ async function recomputeAndStore(
   dossierId: string,
   set: Map<AssumptionKey, AssumptionValue>,
   version: number,
+  extras?: { comps?: DossierPayload["comps"] },
 ): Promise<DossierPayload> {
-  const payload = buildDossierPayload({ assumptions: set, assumptionVersion: version, now: new Date() });
+  const payload = buildDossierPayload({
+    assumptions: set,
+    assumptionVersion: version,
+    now: new Date(),
+  });
+  const [current] = await db
+    .select({ payload: dossiers.payload })
+    .from(dossiers)
+    .where(and(eq(dossiers.id, dossierId), eq(dossiers.workspaceId, workspaceId)))
+    .limit(1);
+  const existing = (current?.payload ?? {}) as DossierPayload;
+  const merged: DossierPayload = {
+    ...payload,
+    comps: extras?.comps !== undefined ? extras.comps : (existing.comps ?? null),
+  };
   await db
     .update(dossiers)
-    .set({ payload: payload as unknown as Record<string, unknown>, updatedAt: new Date() })
+    .set({ payload: merged as unknown as Record<string, unknown>, updatedAt: new Date() })
     .where(and(eq(dossiers.id, dossierId), eq(dossiers.workspaceId, workspaceId)));
-  return payload;
+  return merged;
 }
 
 // Creates a dossier from listing extraction fields (pasted text or uploaded
@@ -424,4 +452,85 @@ export async function loadSharedDossier(token: string): Promise<LoadedDossier | 
   if (!dossier) return null;
   const { version, set } = await loadCurrentAssumptions(dossier.workspaceId, dossier.id);
   return toLoaded(dossier, version, set);
+}
+
+function queryFromAssumptions(
+  set: Map<AssumptionKey, AssumptionValue>,
+  fallbackAddress: string | null,
+): { address: string; bedrooms: number | null; bathrooms: number | null; sqft: number | null } | null {
+  const address = set.get("address")?.valueText?.trim() || fallbackAddress?.trim() || null;
+  if (!address) return null;
+  return {
+    address,
+    bedrooms: set.get("bedrooms")?.valueNum ?? null,
+    bathrooms: set.get("bathrooms")?.valueNum ?? null,
+    sqft: set.get("sqft")?.valueNum ?? null,
+  };
+}
+
+// Pulls RentCast (or mock) comps and optionally writes median rent as a
+// sourced assumption. The finance engine is recomputed from assumptions —
+// comps never become an engine input on their own.
+export async function applyCompsToDossier(params: {
+  workspaceId: string;
+  userId: string | null;
+  dossierId: string;
+  mode: ApplyCompsMode;
+}): Promise<{ ok: true; version: number; appliedRent: boolean } | { ok: false; message: string }> {
+  const { workspaceId, userId, dossierId, mode } = params;
+  const [dossier] = await db
+    .select()
+    .from(dossiers)
+    .where(and(eq(dossiers.id, dossierId), eq(dossiers.workspaceId, workspaceId)))
+    .limit(1);
+  if (!dossier) return { ok: false, message: "Dossier not found." };
+
+  const { version, set } = await loadCurrentAssumptions(workspaceId, dossierId);
+  const queryFields = queryFromAssumptions(set, dossier.title);
+  if (!queryFields) {
+    return { ok: false, message: "Add an address before pulling comps." };
+  }
+
+  let comps;
+  try {
+    comps = await fetchCompSet({
+      query: { ...queryFields, radiusMiles: 2 },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "RentCast request failed.";
+    return { ok: false, message };
+  }
+
+  const unverified = rentIsUnverified(set);
+  const applyRent = shouldApplyRent(mode, unverified);
+  const rent = applyRent ? rentAssumptionFromComps(comps) : null;
+  const next = new Map(set);
+  let nextVersion = version;
+  if (rent) {
+    next.set("monthly_rent", rent);
+    nextVersion = version + 1;
+    await insertAssumptionSet(workspaceId, dossierId, next, nextVersion, null);
+  }
+
+  const payload = await recomputeAndStore(workspaceId, dossierId, next, nextVersion, { comps });
+
+  await writeAuditLog({
+    workspaceId,
+    actorUserId: userId,
+    actorType: userId ? "user" : "system",
+    action: rent ? "dossier.comps_applied" : "dossier.comps_fetched",
+    targetType: "dossier",
+    targetId: dossierId,
+    metadata: {
+      provider: comps.provider,
+      usedMock: comps.usedMock,
+      listingCount: comps.summary.listingCount,
+      medianRentCents: comps.summary.medianRentCents,
+      appliedRent: Boolean(rent),
+      version: nextVersion,
+      computable: payload.computable,
+    },
+  });
+
+  return { ok: true, version: nextVersion, appliedRent: Boolean(rent) };
 }

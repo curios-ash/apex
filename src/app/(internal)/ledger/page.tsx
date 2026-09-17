@@ -57,7 +57,11 @@ export default async function LedgerPage() {
           <a href="/exceptions" className="font-medium text-emerald-700 underline">
             exceptions page
           </a>
-          .
+          .{" "}
+          <a href="/export" className="font-medium text-emerald-700 underline">
+            Export a CPA zip
+          </a>{" "}
+          of the ledger, exceptions, and actuals.
         </p>
       </div>
 

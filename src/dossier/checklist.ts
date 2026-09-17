@@ -53,13 +53,22 @@ export function buildChecklist(input: {
         "Pull 3 comparable rentals within a mile and enter the median rent. The pro forma cannot be computed without it.",
       ),
     );
+  } else if (sourceOf("monthly_rent") === "comp") {
+    items.push(
+      item(
+        "confirm-comps",
+        "standard",
+        "Confirm the RentCast comps match the subject",
+        "Monthly rent is the median of pulled comps, not a listing or manual figure. Walk the set before trusting the pro forma — the engine did not invent this number.",
+      ),
+    );
   } else if (sourceOf("monthly_rent") !== "manual") {
     items.push(
       item(
         "verify-rent",
         "important",
         "Verify the rent with comps",
-        "The rent figure comes from the listing or a default, not your own comps. Check 3 comparable rentals before trusting the pro forma.",
+        "The rent figure comes from the listing or a default, not your own comps. Pull RentCast comps (or enter a manual rent) before trusting the pro forma.",
       ),
     );
   }

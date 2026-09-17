@@ -20,9 +20,15 @@ export function resetDocumentLlm(): void {
   cached = null;
 }
 
+export { DEFAULT_EXTRACTION_MODEL } from "./ai-sdk";
+
 // Approximate USD per 1M tokens, used only for cost logging (llm-pricing-v1).
 // Multiply tokens by these rates to get micro-dollars directly.
 const PRICE_PER_MTOK: Record<string, { input: number; output: number }> = {
+  "google/gemini-3.1-flash-lite": { input: 0.1, output: 0.4 },
+  "gemini-3.1-flash-lite": { input: 0.1, output: 0.4 },
+  "google/gemini-3.1-flash": { input: 0.3, output: 2.5 },
+  "gemini-3.1-flash": { input: 0.3, output: 2.5 },
   "anthropic/claude-sonnet-5": { input: 3, output: 15 },
   "claude-sonnet-5": { input: 3, output: 15 },
   "anthropic/claude-fable-5-1": { input: 5, output: 25 },

@@ -63,6 +63,12 @@ export default async function InternalLayout({ children }: { children: React.Rea
               <Link href="/dossiers" className="hover:text-stone-900">
                 Dossiers
               </Link>
+              <Link href="/evidence" className="hover:text-stone-900">
+                Evidence
+              </Link>
+              <Link href="/export" className="hover:text-stone-900">
+                Export
+              </Link>
               <Link href="/activity" className="hover:text-stone-900">
                 Activity
               </Link>

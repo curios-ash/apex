@@ -62,7 +62,7 @@ export type AssumptionKey =
   | DownsideAssumptionKey
   | DisplayAssumptionKey;
 
-export type AssumptionSource = "listing" | "manual" | "default";
+export type AssumptionSource = "listing" | "manual" | "default" | "comp";
 export type AssumptionConfidence = "low" | "medium" | "high";
 
 // One assumption as the engine sees it: the value plus its provenance.
@@ -73,6 +73,9 @@ export interface AssumptionValue {
   unit: "usd_cents" | "ratio" | "months" | "years" | "count" | "text";
   source: AssumptionSource;
   confidence: AssumptionConfidence;
+  // Raw DB/source string (e.g. "listing:document:<id>", "comp:rentcast:median").
+  // The engine and checklist use `source`; the UI uses this when present.
+  sourceRef?: string;
 }
 
 export interface DownsideParams {
@@ -116,4 +119,7 @@ export interface DossierPayload {
     analysis: DealAnalysis;
   } | null;
   checklist: ChecklistItem[];
+  // Provenance-only RentCast (or mock) snapshot. Never an engine input —
+  // monthly_rent is applied as an assumption row if the owner accepts it.
+  comps?: import("@/comps/types").CompSet | null;
 }

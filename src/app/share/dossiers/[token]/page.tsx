@@ -34,6 +34,7 @@ function formatAssumptionValue(v: AssumptionValue): string {
 
 function sourceLabel(source: string): string {
   if (source.startsWith("listing")) return "Listing";
+  if (source.startsWith("comp")) return "RentCast comps";
   if (source.startsWith("default:")) return `Default · ${source.slice("default:".length)}`;
   if (source === "default") return "Default";
   return "Manual entry";
@@ -228,7 +229,7 @@ export default async function SharedDossierPage({
                           {humanize(v.key)}
                         </td>
                         <td className="px-4 py-2.5">{formatAssumptionValue(v)}</td>
-                        <td className="px-4 py-2.5 text-stone-600">{sourceLabel(v.source)}</td>
+                        <td className="px-4 py-2.5 text-stone-600">{sourceLabel(v.sourceRef ?? v.source)}</td>
                         <td className="px-4 py-2.5">
                           <span
                             className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${CONFIDENCE_STYLES[v.confidence]}`}

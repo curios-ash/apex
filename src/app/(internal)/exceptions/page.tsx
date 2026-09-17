@@ -1,8 +1,9 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 
+import { EvidenceList } from "@/components/evidence-list";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
-import { exceptions, properties, type ExceptionEvidence } from "@/lib/db/schema";
+import { exceptions, properties } from "@/lib/db/schema";
 import { formatCents, formatDateTime } from "@/lib/format";
 import { getActiveWorkspace } from "@/lib/workspace";
 
@@ -29,32 +30,6 @@ function monthLabel(month: string | null): string {
     year: "numeric",
     timeZone: "UTC",
   });
-}
-
-function EvidenceList({ evidence }: { evidence: ExceptionEvidence[] }) {
-  return (
-    <ul className="space-y-1 text-xs text-stone-500">
-      {evidence.map((item, i) => (
-        <li key={i} className="flex flex-wrap items-center gap-2">
-          {item.documentId ? (
-            <a
-              href={`/api/documents/${item.documentId}/file`}
-              target="_blank"
-              className="font-medium text-emerald-800 hover:underline"
-            >
-              source document
-            </a>
-          ) : null}
-          {item.transactionId ? (
-            <span className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] text-stone-500">
-              tx {item.transactionId.slice(0, 8)}
-            </span>
-          ) : null}
-          {item.note ? <span>{item.note}</span> : null}
-        </li>
-      ))}
-    </ul>
-  );
 }
 
 export default async function ExceptionsPage() {
@@ -139,7 +114,7 @@ export default async function ExceptionsPage() {
               </div>
               <div className="space-y-3 px-5 py-4">
                 <p className="text-sm font-medium text-stone-800">{exception.summary}</p>
-                <EvidenceList evidence={exception.evidence} />
+                <EvidenceList evidence={exception.evidence} exceptionId={exception.id} />
                 {exception.recommendedAction ? (
                   <p className="rounded-lg bg-stone-50 px-3 py-2 text-sm text-stone-600">
                     <span className="font-medium text-stone-700">Recommended: </span>

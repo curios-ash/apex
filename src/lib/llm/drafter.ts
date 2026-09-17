@@ -7,7 +7,7 @@ import {
   type DraftContext,
 } from "@/coordinator";
 
-import { resolveModelFor } from "./ai-sdk";
+import { DEFAULT_EXTRACTION_MODEL, resolveModelFor } from "./ai-sdk";
 import type { LlmCallMeta } from "./types";
 
 // The Coordinator's drafting LLM. Like the review narrative, it only ever
@@ -17,7 +17,8 @@ import type { LlmCallMeta } from "./types";
 // template, so local runs and CI need no credentials.
 
 export const DRAFT_PROMPT_VERSION = "coordinator-draft-v1";
-export const DEFAULT_DRAFT_MODEL = "anthropic/claude-sonnet-5";
+// Same pin as extraction — drafts still go through groundedness fallback.
+export const DEFAULT_DRAFT_MODEL = DEFAULT_EXTRACTION_MODEL;
 
 export interface DrafterLlm {
   draft(ctx: DraftContext): Promise<{ draft: CoordinatorDraft; meta: LlmCallMeta }>;

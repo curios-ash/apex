@@ -9,7 +9,7 @@ import { loadDossier } from "@/lib/dossier/run";
 import { formatCents, formatDateTime, formatMultiple, formatPercent } from "@/lib/format";
 import { getActiveWorkspace } from "@/lib/workspace";
 
-import { revise, share, unshare } from "../actions";
+import { revise, share, unshare, pullComps } from "../actions";
 import { AssumptionFields } from "../assumption-fields";
 
 export const dynamic = "force-dynamic";
@@ -43,8 +43,7 @@ function AssumptionSourceView({ source }: { source: string }) {
     const documentId = source.slice("listing:document:".length);
     return (
       <a
-        href={`/api/documents/${documentId}/file`}
-        target="_blank"
+        href={`/evidence?documentId=${documentId}`}
         className="inline-flex items-center gap-1 text-emerald-800 hover:underline"
       >
         <FileText className="size-3.5" aria-hidden />
@@ -52,6 +51,10 @@ function AssumptionSourceView({ source }: { source: string }) {
       </a>
     );
   }
+  if (source.startsWith("comp:")) {
+    return <span className="text-sky-800">RentCast comps · {source.slice("comp:".length)}</span>;
+  }
+  if (source === "comp") return <span className="text-sky-800">RentCast comps</span>;
   if (source.startsWith("default:")) {
     return <span className="text-stone-500">Default · {source.slice("default:".length)}</span>;
   }
@@ -82,8 +85,15 @@ function MetricCard({
   );
 }
 
-export default async function DossierPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function DossierPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ compsError?: string; comps?: string }>;
+}) {
   const { id } = await params;
+  const { compsError, comps: compsFlash } = await searchParams;
   const workspace = await getActiveWorkspace();
   const loaded = await loadDossier(workspace.id, id);
   if (!loaded) notFound();
@@ -162,6 +172,111 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
           </a>
         </div>
       ) : null}
+
+      {compsError ? (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          Couldn&apos;t pull comps: {compsError}
+        </p>
+      ) : null}
+      {compsFlash === "applied" ? (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          Median RentCast (or mock) rent was written as a sourced assumption and the pro forma was
+          recomputed. The engine did not invent this number.
+        </p>
+      ) : null}
+      {compsFlash === "fetched" ? (
+        <p className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+          Comps were fetched and stored on this dossier. Monthly rent was left unchanged (it is
+          already manual or from a previous comps pull). Use &quot;Apply median rent&quot; to
+          overwrite.
+        </p>
+      ) : null}
+
+      <section className="rounded-2xl border border-stone-200 bg-white p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Rent comps</h2>
+            <p className="mt-1 text-sm text-stone-600">
+              RentCast listings (deterministic mock when <code className="font-mono">RENTCAST_API_KEY</code>{" "}
+              is unset). Median rent can feed the <span className="font-medium">monthly rent</span>{" "}
+              assumption — it never computes NOI, DSCR, or IRR.
+            </p>
+          </div>
+          <form action={pullComps} className="flex flex-wrap gap-2">
+            <input type="hidden" name="dossierId" value={dossier.id} />
+            <input type="hidden" name="mode" value="fill_if_unverified" />
+            <Button type="submit" variant="outline" size="sm">
+              Pull comps
+            </Button>
+          </form>
+        </div>
+        {payload.comps ? (
+          <div className="mt-4 space-y-3">
+            <p className="text-sm text-stone-600">
+              {payload.comps.summary.listingCount} listings · median{" "}
+              <span className="font-semibold text-stone-900">
+                {formatCents(payload.comps.summary.medianRentCents)}
+              </span>
+              {payload.comps.summary.minRentCents !== null &&
+              payload.comps.summary.maxRentCents !== null ? (
+                <>
+                  {" "}
+                  (range {formatCents(payload.comps.summary.minRentCents)}–
+                  {formatCents(payload.comps.summary.maxRentCents)})
+                </>
+              ) : null}
+              {" · "}
+              {payload.comps.usedMock ? "mock-rentcast-v1" : "RentCast live"} ·{" "}
+              {formatDateTime(payload.comps.fetchedAt)}
+            </p>
+            {payload.comps.listings.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-500">
+                No comparable listings came back for this address. Enter rent manually.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-stone-100">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-stone-100 text-xs tracking-wide text-stone-500 uppercase">
+                      <th className="px-3 py-2 font-medium">Address</th>
+                      <th className="px-3 py-2 font-medium">Beds</th>
+                      <th className="px-3 py-2 font-medium">Sqft</th>
+                      <th className="px-3 py-2 text-right font-medium">Rent</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payload.comps.listings.map((c) => (
+                      <tr key={c.id} className="border-b border-stone-50 last:border-0">
+                        <td className="px-3 py-2">{c.formattedAddress}</td>
+                        <td className="px-3 py-2 text-stone-600">{c.bedrooms ?? "—"}</td>
+                        <td className="px-3 py-2 text-stone-600">
+                          {c.sqft ? c.sqft.toLocaleString("en-US") : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium">
+                          {formatCents(c.rentCents)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {payload.comps.summary.medianRentCents ? (
+              <form action={pullComps}>
+                <input type="hidden" name="dossierId" value={dossier.id} />
+                <input type="hidden" name="mode" value="overwrite" />
+                <Button type="submit" variant="outline" size="sm">
+                  Apply median rent ({formatCents(payload.comps.summary.medianRentCents)}) as assumption
+                </Button>
+              </form>
+            ) : null}
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-stone-500">
+            No comps pulled yet. Requires an address on the dossier.
+          </p>
+        )}
+      </section>
 
       {!payload.computable ? (
         <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
@@ -332,7 +447,7 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
                     <td className="px-4 py-2.5 font-medium text-stone-800">{humanize(v.key)}</td>
                     <td className="px-4 py-2.5">{formatAssumptionValue(v)}</td>
                     <td className="px-4 py-2.5 text-sm">
-                      <AssumptionSourceView source={v.source} />
+                      <AssumptionSourceView source={v.sourceRef ?? v.source} />
                     </td>
                     <td className="px-4 py-2.5">
                       <span
