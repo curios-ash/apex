@@ -54,6 +54,7 @@ node scripts/e2e-reconcile.mjs               # reconciliation e2e: ingest -> ver
 node scripts/e2e-audit.mjs                   # free audit tool e2e: flags, no persistence, rate limit
 node scripts/e2e-actions.mjs                 # approval queue e2e: obligations, reminder cron, activity log
 node scripts/e2e-onboarding.mjs              # self-serve e2e: sign-in gating, mock billing, signed webhook events
+node scripts/e2e-buyer.mjs                   # buyer desk: /deals + mock geocoder suggestions
 ```
 
 `e2e-onboarding.mjs` expects two servers (see its header comment): one with
@@ -63,6 +64,7 @@ no Stripe account is needed.
 
 Then open the internal pages:
 
+- **`/deals`** — buyer desk: address search, deal files, calculator, capture, timeline, share.
 - **`/upload`** — upload statements/invoices directly; table of recent documents with classification status.
 - **`/verify`** — low-confidence extractions with the source document linked; approve, correct, or reject. Every decision writes an `audit_log` row. Approving a statement runs reconciliation automatically. Links into the evidence viewer.
 - **`/exceptions`** — deterministic findings with dollar impacts and evidence links into `/evidence`. Confirm adds the dollars to the impact ledger; dismiss closes the finding. Both write `audit_log` rows.
@@ -81,6 +83,26 @@ Then open the internal pages:
 
 And the public free tool on the marketing site:
 - **`/audit`** — the PM Statement Audit. No signup: upload one owner statement (PDF or text) + your management fee %, get fee drift / duplicate charges / unexplained fees / aging work orders with a total dollar figure. Anonymous uploads are processed in memory and never persisted; IP rate-limited.
+
+### Buyer desk (Slice A)
+
+The home path after sign-in is **`/deals`**, not landlord onboarding.
+
+1. **Discover** — `/deals` address lookup. With `GOOGLE_MAPS_API_KEY` unset (the default), lookup uses **`mock-places-v1`**: five seed addresses (including the demo duplex at 421 Maple Street, Austin) plus a free-text create if nothing matches. Try typing `maple austin`.
+2. **Capture** — `/deals/<id>/capture` uploads through the existing ingest pipeline, accepts inbound email at `<workspace>+<8hex>@in.<domain>`, and stores notes. Every event is written to `deal_events`.
+3. **Underwrite** — `/deals/<id>/calculator` edits price, rent, opex, and loan. Outputs (NOI, DSCR, cash-on-cash, mortgage, downside) come only from `finance-v1`. Saving writes a dossier version.
+4. **Checklist** — generated from assumption gaps and engine risk flags (same as the dossier).
+5. **Share / export** — read-only dossier link and CPA zip.
+
+History lives at `/deals/<id>/history` (empty, loading, and error states). Owner-ops pages (review, exceptions, …) stay under **Owner ops** in the header.
+
+```bash
+APEX_DEV_AUTH_ENABLED=true npm run dev   # then open /deals
+# inbound onto a deal (copy the alias from Capture):
+node scripts/dev-inbound-email.mjs --to demo+<tag>@in.apex.example.com
+```
+
+**Slice B (not this PR):** portfolio map + geo rollups. Properties already store `latitude` / `longitude` / `place_id` as stubs. Do not build the map here.
 
 ## Underwriter (dossiers)
 
@@ -364,6 +386,7 @@ src/
     page.tsx + api/waitlist/   # landing page + waitlist capture
     sign-in/                   # /sign-in — Clerk <SignIn /> when keys set; else APEX_DEV_AUTH_ENABLED dev form
     (internal)/                # internal tooling (session-aware)
+      deals/                    #   /deals — buyer desk (search, capture, calculator, history)
       upload/                  #   /upload — document upload + recent documents
       verify/                  #   /verify — low-confidence extraction queue
       exceptions/              #   /exceptions — findings, confirm/dismiss
@@ -396,7 +419,7 @@ src/
   export/                      # CPA package (pure TS): CSV, uncompressed zip
   audit/                       # statement audit rules (pure TS, anonymous tool)
   coordinator/                 # Coordinator core (pure TS): draft templates, obligations, reminders, mailto
-  onboarding/                  # onboarding core (pure TS): slugify, month math, budget suggestions
+  deals/                       # buyer desk (pure TS): geocoder, calculator mapping, inbound alias
   lib/
     auth/                      # session contract + dev cookie provider + Clerk
     billing/                   # plan catalog, minimal Stripe client, webhook event mapping
@@ -498,3 +521,5 @@ Nothing in the zip is LLM-computed.
 ## What intentionally isn't here yet
 
 Multi-workspace membership (one login per workspace), OCR for scanned PDFs (text-layer PDFs extract locally via pdf.js; scans fall back to the real LLM provider's file input or the verify queue), durable job execution (pipeline still runs inline in the request), SMTP sending for approved drafts (v1.1 — approval currently unlocks mailto/copy only), and plan enforcement (billing state is recorded but gates nothing yet — dossier/audit caps land with the public launch). Stripe Checkout stays off (`STRIPE_ENABLED` unset). Clerk is wired in-repo; finish the dashboard redirect/origin allowlist (steps above) before treating production auth as fully live.
+
+**Slice B (portfolio map):** no map UI yet. `properties.latitude` / `longitude` / `place_id` are stored from lookup for a future geo rollup. Do not treat `/deals` as a map.

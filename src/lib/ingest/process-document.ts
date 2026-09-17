@@ -124,18 +124,40 @@ export async function processDocument(
     });
 
     const status = extractionStatusFor(extraction.output.fieldConfidence, reviewThreshold());
-    await db.insert(extractions).values({
-      workspaceId: doc.workspaceId,
-      documentId,
-      schemaVersion: entry.version,
-      extractor: `${extraction.meta.model}/${extraction.meta.promptVersion}`,
-      payload: {
-        fields: extraction.output.fields,
-        fieldConfidence: extraction.output.fieldConfidence,
-      },
-      confidence: overallConfidence(extraction.output.fieldConfidence),
-      status,
-    });
+    const [extractionRow] = await db
+      .insert(extractions)
+      .values({
+        workspaceId: doc.workspaceId,
+        documentId,
+        schemaVersion: entry.version,
+        extractor: `${extraction.meta.model}/${extraction.meta.promptVersion}`,
+        payload: {
+          fields: extraction.output.fields,
+          fieldConfidence: extraction.output.fieldConfidence,
+        },
+        confidence: overallConfidence(extraction.output.fieldConfidence),
+        status,
+      })
+      .returning({ id: extractions.id });
+
+    if (doc.propertyId && extractionRow) {
+      const { recordDealEvent } = await import("@/lib/deals/events");
+      await recordDealEvent({
+        workspaceId: doc.workspaceId,
+        propertyId: doc.propertyId,
+        kind: "extract",
+        title: "Listing fields extracted",
+        summary: `${kindToDocumentType(classification.output.kind)} · ${status}`,
+        refType: "extraction",
+        refId: extractionRow.id,
+        metadata: {
+          documentId,
+          schemaVersion: entry.version,
+          status,
+          documentType: kindToDocumentType(classification.output.kind),
+        },
+      });
+    }
 
     const fields = extraction.output.fields as {
       periodStart?: string | null;

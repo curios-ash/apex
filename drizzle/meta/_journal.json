@@ -43,6 +43,13 @@
       "when": 1789574215267,
       "tag": "0005_chief_excalibur",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789636849771,
+      "tag": "0006_buyer_journey",
+      "breakpoints": true
     }
   ]
 }

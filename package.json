@@ -21,7 +21,8 @@
     "e2e:reconcile": "node scripts/e2e-reconcile.mjs",
     "e2e:audit": "node scripts/e2e-audit.mjs",
     "e2e:actions": "node scripts/e2e-actions.mjs",
-    "e2e:onboarding": "node scripts/e2e-onboarding.mjs"
+    "e2e:onboarding": "node scripts/e2e-onboarding.mjs",
+    "e2e:buyer": "node scripts/e2e-buyer.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.54",

@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
+// workspace alias + optional +deal tag routes captures onto a property.
 
-import { extractAliasSlug, normalizeInboundEmail } from "@/lib/inbound-email";
+import { parseInboundAlias } from "@/deals/inbound-alias";
+import { db } from "@/lib/db";
+import { properties } from "@/lib/db/schema";
+import { normalizeInboundEmail } from "@/lib/inbound-email";
 import { ingestDocumentBytes } from "@/lib/ingest/ingest";
 import { getWorkspaceBySlug } from "@/lib/workspace";
+import { and, eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -34,15 +39,25 @@ export async function POST(request: Request) {
     );
   }
 
-  const slug = extractAliasSlug(email.to);
-  if (!slug) {
+  const alias = parseInboundAlias(email.to);
+  if (!alias) {
     // 200 so the provider does not retry a message we can never route.
     return NextResponse.json({ ok: false, reason: "no_alias_recipient" });
   }
 
-  const workspace = await getWorkspaceBySlug(slug);
+  const workspace = await getWorkspaceBySlug(alias.slug);
   if (!workspace) {
-    return NextResponse.json({ ok: false, reason: "unknown_workspace", slug });
+    return NextResponse.json({ ok: false, reason: "unknown_workspace", slug: alias.slug });
+  }
+
+  let propertyId: string | null = null;
+  if (alias.tag) {
+    const [deal] = await db
+      .select({ id: properties.id })
+      .from(properties)
+      .where(and(eq(properties.workspaceId, workspace.id), eq(properties.inboundTag, alias.tag)))
+      .limit(1);
+    propertyId = deal?.id ?? null;
   }
 
   const results: {
@@ -63,6 +78,7 @@ export async function POST(request: Request) {
         bytes,
         mimeType: attachment.contentType,
         source: "email",
+        propertyId,
         emailSubject: email.subject,
       });
       results.push(result);
@@ -83,6 +99,7 @@ export async function POST(request: Request) {
         bytes: new Uint8Array(Buffer.from(email.text, "utf8")),
         mimeType: "text/plain",
         source: "email",
+        propertyId,
         emailSubject: email.subject,
       });
       results.push(result);
@@ -95,6 +112,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: failures.length === 0,
     workspaceSlug: workspace.slug,
+    propertyId,
     provider: email.provider,
     documents: results,
     failures,

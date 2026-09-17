@@ -79,7 +79,7 @@ export async function devSignIn(
     .from(properties)
     .where(eq(properties.workspaceId, user.workspaceId))
     .limit(1);
-  redirect(firstProperty ? "/review" : "/onboarding");
+  redirect(firstProperty ? "/deals" : "/onboarding");
 }
 
 export async function devSignOut() {

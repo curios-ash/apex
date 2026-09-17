@@ -243,6 +243,7 @@ export async function createDossier(params: {
   title?: string | null;
   listingUrl?: string | null;
   sourceDocumentId?: string | null;
+  propertyId?: string | null;
   provided: Map<AssumptionKey, AssumptionValue>;
 }): Promise<{ dossierId: string }> {
   const { workspaceId, userId } = params;
@@ -254,6 +255,7 @@ export async function createDossier(params: {
     .insert(dossiers)
     .values({
       workspaceId,
+      propertyId: params.propertyId ?? null,
       title,
       listingUrl: params.listingUrl?.trim() || null,
       sourceDocumentId: params.sourceDocumentId ?? null,
@@ -274,6 +276,7 @@ export async function createDossier(params: {
     targetId: dossier.id,
     metadata: {
       title,
+      propertyId: params.propertyId ?? null,
       sourceDocumentId: params.sourceDocumentId ?? null,
       listingUrl: params.listingUrl ?? null,
       computable: payload.computable,
@@ -281,6 +284,23 @@ export async function createDossier(params: {
       assumptionCount: set.size,
     },
   });
+
+  if (params.propertyId) {
+    const { recordDealEvent } = await import("@/lib/deals/events");
+    await recordDealEvent({
+      workspaceId,
+      propertyId: params.propertyId,
+      kind: "dossier_version",
+      title: "Dossier v1 computed",
+      summary: payload.computable
+        ? "Pro forma saved from the finance engine."
+        : `Needs ${payload.missingInputs.join(", ") || "inputs"} before the engine can run.`,
+      refType: "dossier",
+      refId: dossier.id,
+      metadata: { version: 1, computable: payload.computable },
+      actorUserId: userId,
+    });
+  }
 
   return { dossierId: dossier.id };
 }
@@ -352,6 +372,21 @@ export async function reviseDossier(params: {
     metadata: { version: nextVersion, changedKeys: changed, computable: payload.computable },
   });
 
+  if (dossier.propertyId) {
+    const { recordDealEvent } = await import("@/lib/deals/events");
+    await recordDealEvent({
+      workspaceId,
+      propertyId: dossier.propertyId,
+      kind: "dossier_version",
+      title: `Dossier v${nextVersion} computed`,
+      summary: `Updated ${changed.join(", ")}. Outputs from ${FINANCE_V1}.`,
+      refType: "dossier",
+      refId: dossierId,
+      metadata: { version: nextVersion, changedKeys: changed, computable: payload.computable },
+      actorUserId: userId,
+    });
+  }
+
   return { version: nextVersion };
 }
 
@@ -382,6 +417,19 @@ export async function shareDossier(params: {
     targetType: "dossier",
     targetId: dossierId,
   });
+  if (existing.propertyId) {
+    const { recordDealEvent } = await import("@/lib/deals/events");
+    await recordDealEvent({
+      workspaceId,
+      propertyId: existing.propertyId,
+      kind: "share",
+      title: "Read-only share link created",
+      summary: "Anyone with the link can see this deal’s engine outputs — not your workspace.",
+      refType: "dossier",
+      refId: dossierId,
+      actorUserId: userId,
+    });
+  }
   return { token };
 }
 

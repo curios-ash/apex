@@ -86,6 +86,27 @@ export async function ingestDocumentBytes(params: {
   await processDocument(id, { emailSubject });
 
   const after = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
+
+  if (propertyId) {
+    const { recordDealEvent } = await import("@/lib/deals/events");
+    await recordDealEvent({
+      workspaceId,
+      propertyId,
+      kind: source === "email" ? "email" : "document",
+      title: source === "email" ? "Inbound email captured" : "Document uploaded",
+      summary: filename,
+      refType: "document",
+      refId: id,
+      metadata: {
+        source,
+        filename,
+        status: after[0]?.status ?? "received",
+        documentType: after[0]?.documentType ?? "other",
+        emailSubject: emailSubject ?? null,
+      },
+    });
+  }
+
   return {
     documentId: id,
     duplicate: false,

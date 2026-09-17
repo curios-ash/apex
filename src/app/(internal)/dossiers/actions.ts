@@ -24,12 +24,25 @@ import { parseAssumptionUpdates } from "./parse";
 
 const MAX_LISTING_BYTES = 10 * 1024 * 1024;
 
+function propertyIdFrom(formData: FormData): string | null {
+  return String(formData.get("propertyId") ?? "").trim() || null;
+}
+
+function afterDossier(dossierId: string, propertyId: string | null): never {
+  redirect(propertyId ? `/deals/${propertyId}` : `/dossiers/${dossierId}`);
+}
+
 export async function createFromText(formData: FormData) {
   const workspace = await getActiveWorkspace();
   const text = String(formData.get("listingText") ?? "").trim();
   const listingUrl = String(formData.get("listingUrl") ?? "").trim() || null;
+  const propertyId = propertyIdFrom(formData);
   if (text.length < 20) {
-    redirect("/dossiers/new?error=text-too-short");
+    redirect(
+      propertyId
+        ? `/dossiers/new?error=text-too-short&propertyId=${propertyId}`
+        : "/dossiers/new?error=text-too-short",
+    );
   }
 
   const intake = await intakeListingText({ workspaceId: workspace.id, text });
@@ -37,6 +50,7 @@ export async function createFromText(formData: FormData) {
     workspaceId: workspace.id,
     userId: workspace.ownerUserId,
     listingUrl,
+    propertyId,
     sourceDocumentId: intake.documentId,
     provided: providedFromListing({
       fields: intake.fields,
@@ -44,17 +58,24 @@ export async function createFromText(formData: FormData) {
       documentId: intake.documentId,
     }),
   });
-  redirect(`/dossiers/${dossierId}`);
+  afterDossier(dossierId, propertyId);
 }
 
 export async function createFromFile(formData: FormData) {
   const workspace = await getActiveWorkspace();
   const file = formData.get("file");
+  const propertyId = propertyIdFrom(formData);
   if (!(file instanceof File) || file.size === 0) {
-    redirect("/dossiers/new?error=no-file");
+    redirect(
+      propertyId ? `/dossiers/new?error=no-file&propertyId=${propertyId}` : "/dossiers/new?error=no-file",
+    );
   }
   if (file.size > MAX_LISTING_BYTES) {
-    redirect("/dossiers/new?error=file-too-large");
+    redirect(
+      propertyId
+        ? `/dossiers/new?error=file-too-large&propertyId=${propertyId}`
+        : "/dossiers/new?error=file-too-large",
+    );
   }
   const listingUrl = String(formData.get("listingUrl") ?? "").trim() || null;
 
@@ -69,6 +90,7 @@ export async function createFromFile(formData: FormData) {
     workspaceId: workspace.id,
     userId: workspace.ownerUserId,
     listingUrl,
+    propertyId,
     sourceDocumentId: intake.documentId,
     provided: providedFromListing({
       fields: intake.fields,
@@ -76,7 +98,7 @@ export async function createFromFile(formData: FormData) {
       documentId: intake.documentId,
     }),
   });
-  redirect(`/dossiers/${dossierId}`);
+  afterDossier(dossierId, propertyId);
 }
 
 export async function createManual(formData: FormData) {
@@ -98,13 +120,15 @@ export async function createManual(formData: FormData) {
     });
   }
 
+  const propertyId = propertyIdFrom(formData);
   const { dossierId } = await createDossier({
     workspaceId: workspace.id,
     userId: workspace.ownerUserId,
     title,
+    propertyId,
     provided,
   });
-  redirect(`/dossiers/${dossierId}`);
+  afterDossier(dossierId, propertyId);
 }
 
 export async function revise(formData: FormData) {
@@ -126,6 +150,7 @@ export async function share(formData: FormData) {
   const dossierId = String(formData.get("dossierId") ?? "");
   await shareDossier({ workspaceId: workspace.id, userId: workspace.ownerUserId, dossierId });
   revalidatePath(`/dossiers/${dossierId}`);
+  revalidatePath("/deals", "layout");
 }
 
 export async function unshare(formData: FormData) {
@@ -133,6 +158,7 @@ export async function unshare(formData: FormData) {
   const dossierId = String(formData.get("dossierId") ?? "");
   await unshareDossier({ workspaceId: workspace.id, userId: workspace.ownerUserId, dossierId });
   revalidatePath(`/dossiers/${dossierId}`);
+  revalidatePath("/deals", "layout");
 }
 
 export async function pullComps(formData: FormData) {
