@@ -269,11 +269,14 @@ export const properties = pgTable(
     purchasePriceCents: bigint("purchase_price_cents", { mode: "number" }),
     purchaseDate: date("purchase_date"),
     currentValueCents: bigint("current_value_cents", { mode: "number" }),
-    // Slice A: Places lookup. Slice B will roll these into a portfolio map.
+    // Slice A/B: Places lookup + public geo stub for the portfolio map.
     latitude: doublePrecision("latitude"),
     longitude: doublePrecision("longitude"),
     placeId: text("place_id"),
     geocoder: text("geocoder"),
+    county: text("county"),
+    neighborhood: text("neighborhood"),
+    geoSource: text("geo_source"),
     // Plus-tag on the workspace inbound alias: <slug>+<tag>@in.<domain>
     inboundTag: text("inbound_tag"),
     ...timestamps,
