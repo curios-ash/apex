@@ -1,3 +1,5 @@
+export type EnvLike = Record<string, string | undefined>;
+
 export const DEFAULT_DATABASE_URL = "postgres://postgres:postgres@localhost:5432/apex";
 
 export type PostgresClientOptions = {
@@ -8,7 +10,7 @@ export type PostgresClientOptions = {
   prepare: boolean;
 };
 
-export function resolveDatabaseUrl(env: NodeJS.ProcessEnv = process.env): string {
+export function resolveDatabaseUrl(env: EnvLike = process.env): string {
   return env.DATABASE_URL?.trim() || DEFAULT_DATABASE_URL;
 }
 
@@ -28,7 +30,7 @@ export function isNeonDatabaseUrl(url: string): boolean {
 /** Fail closed on Vercel so we never try postgres://…@localhost inside a lambda. */
 export function assertDatabaseUrlForRuntime(
   url: string,
-  env: NodeJS.ProcessEnv = process.env,
+  env: EnvLike = process.env,
 ): void {
   if (env.VERCEL !== "1") return;
   if (!env.DATABASE_URL?.trim()) {
@@ -45,7 +47,7 @@ export function assertDatabaseUrlForRuntime(
 
 export function postgresClientOptions(
   url: string,
-  env: NodeJS.ProcessEnv = process.env,
+  env: EnvLike = process.env,
 ): PostgresClientOptions {
   const serverless = env.VERCEL === "1" || isNeonDatabaseUrl(url);
   return {
