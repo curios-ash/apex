@@ -7,6 +7,9 @@ import { users, workspaces } from "@/lib/db/schema";
 import { slugifyWorkspaceName } from "@/onboarding";
 
 import type { ApexSession } from "./types";
+import { isClerkConfigured } from "./configured";
+
+export { isClerkConfigured } from "./configured";
 
 // Clerk provider — production auth (magic link + Google). Wired when
 // NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY + CLERK_SECRET_KEY are set (Vercel
@@ -22,12 +25,6 @@ import type { ApexSession } from "./types";
 //      (or link an existing users.email row to the Clerk id).
 //   4. /sign-in renders Clerk <SignIn /> when configured; the dev
 //      provider stays available for local work without Clerk keys.
-
-export function isClerkConfigured(): boolean {
-  return Boolean(
-    process.env.CLERK_SECRET_KEY && process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-  );
-}
 
 function primaryEmail(clerkUser: {
   primaryEmailAddress?: { emailAddress: string } | null;

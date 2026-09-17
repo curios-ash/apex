@@ -1,8 +1,9 @@
-import { getClerkSession, isClerkConfigured } from "./clerk";
+import { getClerkSession } from "./clerk";
+import { isClerkConfigured } from "./configured";
 import { getDevSession } from "./dev";
 import type { ApexSession } from "./types";
 
-export { isClerkConfigured } from "./clerk";
+export { isClerkConfigured } from "./configured";
 export { isDevAuthEnabled } from "./dev";
 export type { ApexSession } from "./types";
 

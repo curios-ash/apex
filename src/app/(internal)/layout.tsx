@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { SignOutButton } from "@clerk/nextjs";
 
 import { AppChrome } from "@/components/app-chrome";
+import { ClerkSignOut } from "@/components/clerk-sign-out";
 import { Button } from "@/components/ui/button";
 import { getSession, isClerkConfigured, isDevAuthEnabled, type ApexSession } from "@/lib/auth";
 import { getActiveWorkspace } from "@/lib/workspace";
@@ -23,11 +23,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
 
   const signOut = session ? (
     session.provider === "clerk" ? (
-      <SignOutButton>
-        <Button type="button" variant="outline" size="xs">
-          Sign out
-        </Button>
-      </SignOutButton>
+      <ClerkSignOut />
     ) : (
       <form action={devSignOut}>
         <Button type="submit" variant="outline" size="xs">

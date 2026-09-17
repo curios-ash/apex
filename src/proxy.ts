@@ -1,6 +1,8 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 
+import { isClerkConfigured } from "@/lib/auth/configured";
+
 // Next.js 16 Proxy (formerly middleware). Clerk attaches the session so
 // `auth()` works in Server Components. When Clerk keys are absent (local
 // without Marketplace keys), this is a no-op so the app keeps using the
@@ -8,6 +10,7 @@ import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server
 
 const INTERNAL_APP_PREFIXES = [
   "/deals",
+  "/portfolio",
   "/upload",
   "/verify",
   "/exceptions",
@@ -23,12 +26,6 @@ const INTERNAL_APP_PREFIXES = [
   "/onboarding",
   "/billing",
 ] as const;
-
-function isClerkConfigured(): boolean {
-  return Boolean(
-    process.env.CLERK_SECRET_KEY && process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-  );
-}
 
 function isInternalAppPath(pathname: string): boolean {
   return INTERNAL_APP_PREFIXES.some(
@@ -51,19 +48,20 @@ function isAlwaysPublicPath(pathname: string): boolean {
   return false;
 }
 
-const clerkHandler = isClerkConfigured()
-  ? clerkMiddleware(async (auth, req) => {
-      const { pathname } = req.nextUrl;
-      if (isAlwaysPublicPath(pathname)) return;
-      if (isInternalAppPath(pathname)) {
-        await auth.protect();
-      }
-    })
-  : null;
-
 export default function proxy(req: NextRequest, event: NextFetchEvent) {
-  if (clerkHandler) return clerkHandler(req, event);
-  return NextResponse.next();
+  // Resolve keys per request. Module-init would freeze a cold-start miss.
+  if (!isClerkConfigured()) return NextResponse.next();
+
+  return clerkMiddleware(async (auth, request) => {
+    const { pathname } = request.nextUrl;
+    if (isAlwaysPublicPath(pathname)) return;
+    if (isInternalAppPath(pathname)) {
+      await auth.protect({
+        unauthenticatedUrl: "/sign-in",
+        unauthorizedUrl: "/sign-in",
+      });
+    }
+  })(req, event);
 }
 
 export const config = {
