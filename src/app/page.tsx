@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   ArrowRight,
   BadgeDollarSign,
@@ -99,6 +100,12 @@ export default function Home() {
             Apex
           </a>
           <nav className="flex items-center gap-6">
+            <Link
+              href="/deals"
+              className="hidden text-sm font-medium text-stone-600 hover:text-stone-900 sm:block"
+            >
+              Find a deal
+            </Link>
             <a
               href="/audit"
               className="hidden text-sm font-medium text-stone-600 hover:text-stone-900 sm:block"
@@ -170,6 +177,30 @@ export default function Home() {
                 </div>
               </dl>
             </div>
+          </div>
+        </section>
+
+        <section className="border-b border-stone-200 bg-[#1c1914] text-[#f4e6c8]">
+          <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+            <div>
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-[#c45c26] uppercase">
+                Prospective buyers
+              </p>
+              <h2 className="mt-3 font-[family-name:var(--font-heading)] text-3xl tracking-tight sm:text-4xl">
+                Look up the address. Underwrite the deal. Keep the file.
+              </h2>
+              <p className="mt-4 max-w-xl text-[#d7cbb8]">
+                Apex is the buyer desk first: search a listing, capture the packet, run NOI / DSCR /
+                cash-on-cash on a deterministic engine, then share the dossier. Owner audits stay
+                one click away — they are no longer the only front door.
+              </p>
+            </div>
+            <Link
+              href="/deals"
+              className="inline-flex h-fit items-center justify-center rounded-full bg-[#c45c26] px-6 py-3 text-sm font-semibold text-white hover:bg-[#9a3f12]"
+            >
+              Open the buyer desk
+            </Link>
           </div>
         </section>
 

@@ -13,6 +13,7 @@ function arg(name, fallback) {
 
 const fixture = arg("fixture", "fixtures/pm-statement-appfolio.txt");
 const slug = arg("slug", "demo");
+const toOverride = arg("to", "");
 const baseUrl = arg("url", process.env.BASE_URL ?? "http://localhost:3000");
 const domain = process.env.INBOUND_EMAIL_DOMAIN ?? "in.apex.example.com";
 
@@ -21,7 +22,7 @@ const content = readFileSync(fixture).toString("base64");
 
 const payload = {
   From: "owner@example.com",
-  To: `${slug}@${domain}`,
+  To: toOverride || `${slug}@${domain}`,
   Subject: `Fwd: March owner statement (${filename})`,
   TextBody: "Forwarding the March owner statement from my PM.",
   MessageID: `<dev-${Date.now()}@local>`,

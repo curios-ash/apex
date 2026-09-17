@@ -1,3 +1,5 @@
+import { parseInboundAlias } from "@/deals/inbound-alias";
+
 // Normalizes Resend- and Postmark-style inbound email webhook payloads into
 // one shape. Pure functions — unit-tested without a server.
 //
@@ -124,19 +126,11 @@ export function normalizeInboundEmail(body: unknown): NormalizedInboundEmail | n
 }
 
 // Pulls the workspace slug out of recipient addresses of the form
-// <slug>@in.<domain>. When INBOUND_EMAIL_DOMAIN is set, only that exact
-// domain matches; otherwise any "in." subdomain is accepted.
+// <slug>@in.<domain> (optional +deal tag). When INBOUND_EMAIL_DOMAIN is set,
+// only that exact domain matches; otherwise any "in." subdomain is accepted.
 export function extractAliasSlug(
   addresses: string[],
   inboundDomain = process.env.INBOUND_EMAIL_DOMAIN,
 ): string | null {
-  for (const raw of addresses) {
-    const angle = /<([^>]+)>/.exec(raw);
-    const address = (angle ? angle[1] : raw).trim().toLowerCase();
-    const m = /^([a-z0-9][a-z0-9-]*)@(in\.[a-z0-9.-]+)$/.exec(address);
-    if (!m) continue;
-    if (inboundDomain && m[2] !== inboundDomain.toLowerCase()) continue;
-    return m[1];
-  }
-  return null;
+  return parseInboundAlias(addresses, inboundDomain)?.slug ?? null;
 }

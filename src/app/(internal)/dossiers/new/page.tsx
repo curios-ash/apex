@@ -23,6 +23,7 @@ export default async function NewDossierPage({
   const params = await searchParams;
   const errorKey = typeof params.error === "string" ? params.error : null;
   const error = errorKey ? (ERRORS[errorKey] ?? "Something went wrong.") : null;
+  const propertyId = typeof params.propertyId === "string" ? params.propertyId : "";
 
   return (
     <div className="space-y-8">
@@ -53,6 +54,7 @@ export default async function NewDossierPage({
             Copy the listing page text (address, price, beds/baths, rent, taxes) and paste it here.
           </p>
           <form action={createFromText} className="mt-4 space-y-4">
+            {propertyId ? <input type="hidden" name="propertyId" value={propertyId} /> : null}
             <div>
               <Label htmlFor="listingText">Listing text</Label>
               <textarea
@@ -92,6 +94,7 @@ export default async function NewDossierPage({
             stored privately as the source for every extracted assumption.
           </p>
           <form action={createFromFile} className="mt-4 space-y-4">
+            {propertyId ? <input type="hidden" name="propertyId" value={propertyId} /> : null}
             <div>
               <Label htmlFor="file">Listing file</Label>
               <Input
@@ -132,6 +135,7 @@ export default async function NewDossierPage({
           field blank to use the flagged default.
         </p>
         <form action={createManual} className="mt-4 space-y-6">
+          {propertyId ? <input type="hidden" name="propertyId" value={propertyId} /> : null}
           <div className="max-w-md">
             <Label htmlFor="title">Deal name (optional)</Label>
             <Input id="title" name="title" placeholder="Maple Street duplex" className="mt-1.5 bg-white" />

@@ -88,4 +88,8 @@ describe("extractAliasSlug", () => {
     expect(extractAliasSlug(["demo@in.apex.example.com"], "in.apex.example.com")).toBe("demo");
     expect(extractAliasSlug(["demo@in.other.com"], "in.apex.example.com")).toBeNull();
   });
+
+  it("strips a deal plus-tag and still returns the workspace slug", () => {
+    expect(extractAliasSlug(["demo+a1b2c3d4@in.apex.example.com"])).toBe("demo");
+  });
 });

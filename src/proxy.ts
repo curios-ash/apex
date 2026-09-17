@@ -7,6 +7,7 @@ import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server
 // dev provider / pre-auth workspace resolution.
 
 const INTERNAL_APP_PREFIXES = [
+  "/deals",
   "/upload",
   "/verify",
   "/exceptions",

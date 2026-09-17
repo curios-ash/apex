@@ -27,11 +27,17 @@ let [property] = await sql`
 `;
 if (!property) {
   [property] = await sql`
-    insert into properties (workspace_id, name, address_line1, city, state, zip, property_type)
-    values (${workspace.id}, '421 Maple Street', '421 Maple Street', 'Austin', 'TX', '78701', 'duplex')
+    insert into properties (workspace_id, name, address_line1, city, state, zip, property_type, latitude, longitude, geocoder, inbound_tag)
+    values (${workspace.id}, '421 Maple Street', '421 Maple Street', 'Austin', 'TX', '78701', 'duplex', 30.2711, -97.7437, 'mock', substring(replace(gen_random_uuid()::text, '-', ''), 1, 8))
     returning id
   `;
 }
+await sql`
+  update properties
+  set inbound_tag = substring(replace(id::text, '-', ''), 1, 8)
+  where id = ${property.id} and inbound_tag is null
+`;
+
 
 // PM agreement at 8% of collected income — the demo statements charge 10%,
 // which is what the fee-drift rule catches. The end date (75 days out) feeds

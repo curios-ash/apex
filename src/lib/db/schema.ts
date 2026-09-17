@@ -49,10 +49,20 @@ export const propertyTypeEnum = pgEnum("property_type", [
   "multi_5plus",
 ]);
 export const propertyStatusEnum = pgEnum("property_status", [
+  "prospecting",
   "active",
   "under_contract",
   "sold",
   "archived",
+]);
+export const dealEventKindEnum = pgEnum("deal_event_kind", [
+  "deal_opened",
+  "document",
+  "email",
+  "note",
+  "extract",
+  "dossier_version",
+  "share",
 ]);
 export const unitStatusEnum = pgEnum("unit_status", ["vacant", "occupied", "turn", "down"]);
 export const loanTypeEnum = pgEnum("loan_type", [
@@ -259,9 +269,21 @@ export const properties = pgTable(
     purchasePriceCents: bigint("purchase_price_cents", { mode: "number" }),
     purchaseDate: date("purchase_date"),
     currentValueCents: bigint("current_value_cents", { mode: "number" }),
+    // Slice A: Places lookup. Slice B will roll these into a portfolio map.
+    latitude: doublePrecision("latitude"),
+    longitude: doublePrecision("longitude"),
+    placeId: text("place_id"),
+    geocoder: text("geocoder"),
+    // Plus-tag on the workspace inbound alias: <slug>+<tag>@in.<domain>
+    inboundTag: text("inbound_tag"),
     ...timestamps,
   },
-  (t) => [index("properties_workspace_idx").on(t.workspaceId)],
+  (t) => [
+    index("properties_workspace_idx").on(t.workspaceId),
+    uniqueIndex("properties_inbound_tag_idx")
+      .on(t.workspaceId, t.inboundTag)
+      .where(sql`${t.inboundTag} is not null`),
+  ],
 );
 
 export const units = pgTable(
@@ -740,6 +762,50 @@ export const obligations = pgTable(
     uniqueIndex("obligations_source_idx")
       .on(t.workspaceId, t.obligationType, t.relatedId)
       .where(sql`${t.relatedId} is not null`),
+  ],
+);
+
+export const dealNotes = pgTable(
+  "deal_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    propertyId: uuid("property_id")
+      .notNull()
+      .references(() => properties.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("deal_notes_workspace_idx").on(t.workspaceId),
+    index("deal_notes_property_idx").on(t.propertyId),
+  ],
+);
+
+export const dealEvents = pgTable(
+  "deal_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    propertyId: uuid("property_id")
+      .notNull()
+      .references(() => properties.id, { onDelete: "cascade" }),
+    kind: dealEventKindEnum("kind").notNull(),
+    title: text("title").notNull(),
+    summary: text("summary"),
+    refType: text("ref_type"),
+    refId: uuid("ref_id"),
+    metadata: jsonb("metadata").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("deal_events_workspace_idx").on(t.workspaceId),
+    index("deal_events_property_created_idx").on(t.propertyId, t.createdAt),
   ],
 );
 
