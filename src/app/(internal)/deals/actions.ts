@@ -5,10 +5,9 @@ import { redirect } from "next/navigation";
 
 import { calculatorFromForm } from "@/deals/calculator";
 import { formatAddress } from "@/deals/address";
-import { lookupPlaces, resolvePlace } from "@/deals/geocode";
 import { inboundTagFromId } from "@/deals/address";
 import { recordDealEvent } from "@/lib/deals/events";
-import { openDealFromPlace } from "@/lib/deals/open";
+import { openDealFromSearchForm } from "@/lib/deals/open-from-search";
 import { persistCalculatorToDossier } from "@/lib/deals/persist-calculator";
 import { db } from "@/lib/db";
 import { dealNotes, properties } from "@/lib/db/schema";
@@ -16,28 +15,11 @@ import { getActiveWorkspace } from "@/lib/workspace";
 import { and, eq } from "drizzle-orm";
 
 export async function openDeal(formData: FormData) {
-  const workspace = await getActiveWorkspace();
-  const placeId = String(formData.get("placeId") ?? "").trim();
-  const query = String(formData.get("query") ?? "").trim();
-  if (!query && !placeId) {
-    redirect("/deals?error=empty-search");
+  const result = await openDealFromSearchForm(formData);
+  if (!result.ok) {
+    redirect(`/deals?error=${result.error}`);
   }
-
-  let suggestion = placeId ? resolvePlace(placeId, query || placeId) : null;
-  if (!suggestion && query) {
-    const { suggestions } = await lookupPlaces(query);
-    suggestion = suggestions.find((s) => s.matched) ?? suggestions[0] ?? resolvePlace("", query);
-  }
-  if (!suggestion) {
-    redirect("/deals?error=empty-search");
-  }
-
-  const { propertyId } = await openDealFromPlace({
-    workspaceId: workspace.id,
-    userId: workspace.ownerUserId,
-    suggestion,
-  });
-  redirect(`/deals/${propertyId}`);
+  redirect(`/deals/${result.propertyId}`);
 }
 
 export async function addDealNote(formData: FormData) {
