@@ -45,7 +45,13 @@ function isAlwaysPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/api/inbound-email")) return true;
   if (pathname.startsWith("/api/billing/webhook")) return true;
   if (pathname.startsWith("/api/cron/")) return true;
+  if (pathname === "/api/places/suggest") return true;
+  if (pathname === "/api/deals/open") return true;
   return false;
+}
+
+function isNextServerAction(request: NextRequest): boolean {
+  return request.headers.has("next-action");
 }
 
 export default function proxy(req: NextRequest, event: NextFetchEvent) {
@@ -55,6 +61,11 @@ export default function proxy(req: NextRequest, event: NextFetchEvent) {
   return clerkMiddleware(async (auth, request) => {
     const { pathname } = request.nextUrl;
     if (isAlwaysPublicPath(pathname)) return;
+    // auth.protect({ unauthenticatedUrl }) redirects Server Action POSTs to
+    // /sign-in before Next can run the action. The client fetch then looks
+    // like a dead form (no navigation, no error). Buyer search still uses
+    // getActiveWorkspace() inside the action / route.
+    if (isNextServerAction(request)) return;
     if (isInternalAppPath(pathname)) {
       await auth.protect({
         unauthenticatedUrl: "/sign-in",

@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { MapPin, Search } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-import { openDeal } from "./actions";
 
 type Suggestion = {
   placeId: string;
@@ -14,6 +12,24 @@ type Suggestion = {
   geocoder: string;
   matched: boolean;
   query: string;
+};
+
+function OpenDealSubmit() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="inline-flex h-12 shrink-0 items-center justify-center rounded-lg bg-[#c45c26] px-6 text-sm font-medium text-white hover:bg-[#9a3f12] disabled:pointer-events-none disabled:opacity-50"
+    >
+      {pending ? "Opening…" : "Open deal"}
+    </button>
+  );
+}
+
+const ERROR_COPY: Record<string, string> = {
+  "empty-search": "Type an address or pick a suggestion first.",
+  "open-failed": "Could not open that deal. Try again or pick a suggestion.",
 };
 
 export function DealSearch({ initialError }: { initialError?: string | null }) {
@@ -52,6 +68,8 @@ export function DealSearch({ initialError }: { initialError?: string | null }) {
     };
   }, [query]);
 
+  const errorCopy = initialError ? (ERROR_COPY[initialError] ?? ERROR_COPY["empty-search"]) : null;
+
   return (
     <div className="rounded-3xl border border-[#d7cbb8] bg-[#fffaf1] p-5 shadow-[0_20px_50px_-28px_rgba(28,25,20,0.45)] sm:p-8">
       <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9a3f12] uppercase">
@@ -66,13 +84,13 @@ export function DealSearch({ initialError }: { initialError?: string | null }) {
         geocoder (try <span className="font-medium text-[#1c1914]">Maple Austin</span>).
       </p>
 
-      {initialError ? (
+      {errorCopy ? (
         <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          Type an address or pick a suggestion first.
+          {errorCopy}
         </p>
       ) : null}
 
-      <form action={openDeal} className="mt-6 space-y-3">
+      <form id="deal-open-form" action="/api/deals/open" method="post" className="mt-6 space-y-3">
         <label htmlFor="deal-query" className="sr-only">
           Property address or listing
         </label>
@@ -89,11 +107,8 @@ export function DealSearch({ initialError }: { initialError?: string | null }) {
               className="h-12 border-[#d7cbb8] bg-white pl-10 text-base"
             />
           </div>
-          <Button type="submit" className="h-12 bg-[#c45c26] px-6 text-white hover:bg-[#9a3f12]">
-            Open deal
-          </Button>
+          <OpenDealSubmit />
         </div>
-        <input type="hidden" name="placeId" value="" />
       </form>
 
       <div className="mt-4 min-h-[3rem]">
@@ -109,22 +124,21 @@ export function DealSearch({ initialError }: { initialError?: string | null }) {
           <ul className="divide-y divide-[#efe4d0] overflow-hidden rounded-2xl border border-[#e2d5be] bg-white">
             {suggestions.map((s) => (
               <li key={s.placeId}>
-                <form action={openDeal}>
-                  <input type="hidden" name="placeId" value={s.placeId} />
-                  <input type="hidden" name="query" value={query} />
-                  <button
-                    type="submit"
-                    className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-[#f7f1e6]"
-                  >
-                    <MapPin className="mt-0.5 size-4 shrink-0 text-[#c45c26]" aria-hidden />
-                    <span>
-                      <span className="block text-sm font-medium text-[#1c1914]">{s.label}</span>
-                      <span className="text-xs text-[#6b6358]">
-                        {s.matched ? `${s.geocoder} match` : "Create from this text"}
-                      </span>
+                <button
+                  type="submit"
+                  form="deal-open-form"
+                  name="placeId"
+                  value={s.placeId}
+                  className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-[#f7f1e6]"
+                >
+                  <MapPin className="mt-0.5 size-4 shrink-0 text-[#c45c26]" aria-hidden />
+                  <span>
+                    <span className="block text-sm font-medium text-[#1c1914]">{s.label}</span>
+                    <span className="text-xs text-[#6b6358]">
+                      {s.matched ? `${s.geocoder} match` : "Create from this text"}
                     </span>
-                  </button>
-                </form>
+                  </span>
+                </button>
               </li>
             ))}
           </ul>
