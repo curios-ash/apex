@@ -58,10 +58,14 @@ export function DealUpload({ propertyId }: { propertyId: string }) {
       <input
         ref={fileRef}
         type="file"
-        className="block w-full rounded-lg border border-[#d7cbb8] bg-white px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#f3ead8] file:px-3 file:py-1.5"
+        className="block min-h-14 w-full rounded-xl border border-[#d7cbb8] bg-white px-3 py-3 text-base file:mr-3 file:rounded-lg file:border-0 file:bg-[#f3ead8] file:px-4 file:py-2 file:text-sm file:font-semibold"
       />
-      <Button type="submit" disabled={pending} className="bg-[#1c1914] text-[#f4e6c8] hover:bg-[#3a3329]">
-        {pending ? "Processing…" : "Upload into this deal"}
+      <Button
+        type="submit"
+        disabled={pending}
+        className="h-14 w-full bg-[#1c1914] text-base font-semibold text-[#f4e6c8] hover:bg-[#3a3329]"
+      >
+        {pending ? "Uploading…" : "Upload this file"}
       </Button>
       {message ? (
         <p className={`text-sm ${ok ? "text-emerald-800" : "text-red-700"}`}>{message}</p>

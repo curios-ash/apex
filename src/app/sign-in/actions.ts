@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { DEV_SESSION_COOKIE, encodeDevSession, isDevAuthEnabled } from "@/lib/auth/dev";
 import { writeAuditLog } from "@/lib/audit";
 import { db } from "@/lib/db";
-import { properties, users, workspaces } from "@/lib/db/schema";
+import { users, workspaces } from "@/lib/db/schema";
 
 export type DevSignInState = { ok: boolean; message: string } | null;
 
@@ -73,13 +73,7 @@ export async function devSignIn(
     metadata: { provider: "dev", email: user.email },
   });
 
-  // New workspaces go straight to onboarding; established ones to the review.
-  const [firstProperty] = await db
-    .select({ id: properties.id })
-    .from(properties)
-    .where(eq(properties.workspaceId, user.workspaceId))
-    .limit(1);
-  redirect(firstProperty ? "/deals" : "/onboarding");
+  redirect("/deals");
 }
 
 export async function devSignOut() {

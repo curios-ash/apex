@@ -21,9 +21,9 @@ const sourceSerif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "Apex — Underwrite the next door, then audit the ones you own",
+  title: "Apex — Find a deal, then evaluate it",
   description:
-    "Owner-side audit and asset management for small landlords. Every number sourced, every action approved.",
+    "Search an address and underwrite it. NOI, DSCR, cash-on-cash, and downside come from a deterministic finance engine.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

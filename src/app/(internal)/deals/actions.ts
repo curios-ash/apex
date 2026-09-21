@@ -28,7 +28,7 @@ export async function addDealNote(formData: FormData) {
   const body = String(formData.get("body") ?? "").trim();
   if (!propertyId) redirect("/deals");
   if (body.length < 2) {
-    redirect(`/deals/${propertyId}/capture?error=empty-note`);
+    redirect(`/deals/${propertyId}?error=empty-note#notes`);
   }
 
   const [note] = await db
@@ -55,7 +55,7 @@ export async function addDealNote(formData: FormData) {
   revalidatePath(`/deals/${propertyId}`);
   revalidatePath(`/deals/${propertyId}/history`);
   revalidatePath(`/deals/${propertyId}/capture`);
-  redirect(`/deals/${propertyId}/history`);
+  redirect(`/deals/${propertyId}#notes`);
 }
 
 export async function saveCalculator(formData: FormData) {
@@ -104,7 +104,8 @@ export async function saveCalculator(formData: FormData) {
 
   revalidatePath(`/deals/${propertyId}`);
   revalidatePath(`/deals/${propertyId}/calculator`);
-  redirect(`/deals/${propertyId}/checklist`);
+  revalidatePath(`/deals/${propertyId}/checklist`);
+  redirect(`/deals/${propertyId}#checklist`);
 }
 
 export async function ensureDealInboundTag(propertyId: string, workspaceId: string): Promise<string> {

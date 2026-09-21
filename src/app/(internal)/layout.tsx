@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { AppChrome } from "@/components/app-chrome";
 import { ClerkSignOut } from "@/components/clerk-sign-out";
 import { Button } from "@/components/ui/button";
@@ -47,14 +45,11 @@ export default async function InternalLayout({ children }: { children: React.Rea
           DEV AUTH — development provider. Clerk replaces this when keys are present.
         </div>
       ) : null}
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">{children}</main>
-      <footer className="border-t border-[#d7cbb8] px-4 py-4 text-center text-xs text-[#6b6358]">
-        Engine math is {""}
-        <span className="font-medium text-[#1c1914]">finance-v1</span>
-        . Models extract documents — they never compute NOI, DSCR, or cash-on-cash.{" "}
-        <Link href="/portfolio" className="underline decoration-[#c45c26]/60 underline-offset-2">
-          Already own doors?
-        </Link>
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:px-6 sm:py-10">{children}</main>
+      <footer className="border-t border-[#d7cbb8] px-4 py-5 text-center text-xs leading-relaxed text-[#6b6358]">
+        Launch is two steps: find an address, then evaluate it. NOI, DSCR, cash-on-cash, and
+        downside come from <span className="font-medium text-[#1c1914]">finance-v1</span> — never
+        from a model.
       </footer>
     </div>
   );

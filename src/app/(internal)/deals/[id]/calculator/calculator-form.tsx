@@ -36,7 +36,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         inputMode="decimal"
-        className="mt-1.5 bg-white"
+        className="mt-1.5 h-12 bg-white text-base md:text-base"
       />
       {hint ? <p className="mt-1 text-xs text-[#8a8172]">{hint}</p> : null}
     </div>
@@ -115,14 +115,45 @@ export function CalculatorForm({
   const down = result.downside?.year1;
 
   return (
-    <form action={saveCalculator} className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+    <form action={saveCalculator} className="flex flex-col gap-6">
       <input type="hidden" name="propertyId" value={propertyId} />
-      <div className="space-y-6 rounded-2xl border border-[#e2d5be] bg-white p-6">
+      <aside className="space-y-4 rounded-2xl border border-[#1c1914] bg-[#1c1914] p-5 text-[#f4e6c8] sm:p-6">
+        <p className="text-[11px] font-semibold tracking-[0.16em] text-[#c45c26] uppercase">
+          finance-v1 · live
+        </p>
+        {!result.computable ? (
+          <p className="text-sm leading-relaxed text-[#d7cbb8]">
+            Enter a purchase price and monthly rent. Still missing: {result.missing.join(", ")}.
+          </p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Output label="Year-1 NOI" value={formatCents(base?.noiCents)} large />
+            <Output label="DSCR" value={formatMultiple(base?.dscr ?? null)} large />
+            <Output label="Cash-on-cash" value={formatPercent(base?.cashOnCashReturn ?? null, 1)} large />
+            <Output
+              label="Downside cash flow"
+              value={formatCents(down?.cashFlowBeforeTaxCents)}
+              warn={(down?.cashFlowBeforeTaxCents ?? 0) < 0}
+              large
+            />
+          </div>
+        )}
+        {result.computable ? (
+          <div className="grid gap-2 border-t border-white/10 pt-4 text-sm sm:grid-cols-2">
+            <Output label="Monthly mortgage" value={formatCents(result.monthlyMortgageCents)} />
+            <Output label="Year-1 cash flow" value={formatCents(base?.cashFlowBeforeTaxCents)} />
+            <Output label="Downside NOI" value={formatCents(down?.noiCents)} />
+            <Output label="Downside DSCR" value={formatMultiple(down?.dscr ?? null)} />
+          </div>
+        ) : null}
+      </aside>
+
+      <div className="space-y-6 rounded-2xl border border-[#e2d5be] bg-white p-5 sm:p-6">
         <div>
-          <h2 className="font-[family-name:var(--font-heading)] text-2xl">Deal math</h2>
-          <p className="mt-1 text-sm text-[#5c5549]">
-            Outputs recompute as you type, using the same finance-v1 engine as the dossier. Saving
-            writes a new assumption version — not a chat reply.
+          <h2 className="font-[family-name:var(--font-heading)] text-2xl">Price, rent, and the loan</h2>
+          <p className="mt-1 text-sm leading-relaxed text-[#5c5549]">
+            Change a number and the panel above recomputes. Save underwriting when the case is the
+            one you want to keep.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -172,50 +203,34 @@ export function CalculatorForm({
             />
           </div>
         </div>
-        <Button type="submit" className="bg-[#c45c26] text-white hover:bg-[#9a3f12]">
-          Save to dossier &amp; open checklist
+        <Button
+          type="submit"
+          className="h-14 w-full bg-[#c45c26] text-base font-semibold text-white hover:bg-[#9a3f12]"
+        >
+          Save underwriting
         </Button>
       </div>
-
-      <aside className="h-fit space-y-4 rounded-2xl border border-[#1c1914] bg-[#1c1914] p-6 text-[#f4e6c8]">
-        <p className="text-[11px] font-semibold tracking-[0.16em] text-[#c45c26] uppercase">
-          {result.engine} · never from a model
-        </p>
-        {!result.computable ? (
-          <p className="text-sm text-[#d7cbb8]">
-            Enter purchase price and monthly rent to run the engine. Missing: {result.missing.join(", ")}.
-          </p>
-        ) : (
-          <>
-            <Output label="Monthly mortgage" value={formatCents(result.monthlyMortgageCents)} />
-            <Output label="Year-1 NOI" value={formatCents(base?.noiCents)} />
-            <Output label="DSCR" value={formatMultiple(base?.dscr ?? null)} />
-            <Output label="Cash-on-cash" value={formatPercent(base?.cashOnCashReturn ?? null, 1)} />
-            <Output label="Year-1 cash flow" value={formatCents(base?.cashFlowBeforeTaxCents)} />
-            <div className="border-t border-white/10 pt-4">
-              <p className="text-[11px] font-semibold tracking-[0.16em] text-[#c45c26] uppercase">
-                Downside
-              </p>
-              <Output label="Downside NOI" value={formatCents(down?.noiCents)} />
-              <Output label="Downside DSCR" value={formatMultiple(down?.dscr ?? null)} />
-              <Output
-                label="Downside cash flow"
-                value={formatCents(down?.cashFlowBeforeTaxCents)}
-                warn={(down?.cashFlowBeforeTaxCents ?? 0) < 0}
-              />
-            </div>
-          </>
-        )}
-      </aside>
     </form>
   );
 }
 
-function Output({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+function Output({
+  label,
+  value,
+  warn,
+  large,
+}: {
+  label: string;
+  value: string;
+  warn?: boolean;
+  large?: boolean;
+}) {
   return (
-    <div className="mt-3 flex items-baseline justify-between gap-4">
+    <div className={large ? "" : "flex items-baseline justify-between gap-4"}>
       <p className="text-sm text-[#d7cbb8]">{label}</p>
-      <p className={`font-[family-name:var(--font-heading)] text-xl ${warn ? "text-red-300" : ""}`}>
+      <p
+        className={`font-[family-name:var(--font-heading)] ${large ? "mt-1 text-3xl" : "text-lg"} ${warn ? "text-red-300" : ""}`}
+      >
         {value}
       </p>
     </div>

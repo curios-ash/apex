@@ -35,19 +35,21 @@ export default async function DealsPage({
     <div className="space-y-10">
       <DealSearch initialError={error} />
 
-      <section>
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h2 className="font-[family-name:var(--font-heading)] text-2xl tracking-tight">Open deals</h2>
-            <p className="mt-1 text-sm text-[#5c5549]">
-              Every address you look up becomes a deal file: capture, calculator, checklist, share.
-            </p>
-          </div>
-        </div>
+      <section aria-labelledby="opened-deals">
+        <h2
+          id="opened-deals"
+          className="font-[family-name:var(--font-heading)] text-2xl tracking-tight"
+        >
+          Deals you already opened
+        </h2>
+        <p className="mt-1 text-sm text-[#5c5549]">
+          Tap one to evaluate it. Search stays the way to start a new address.
+        </p>
 
         {deals.length === 0 ? (
-          <p className="mt-4 rounded-2xl border border-dashed border-[#d7cbb8] bg-white/60 p-6 text-sm text-[#6b6358]">
-            No deals yet. Search Maple Austin to open the demo duplex, or type any address to create one.
+          <p className="mt-4 rounded-2xl border border-dashed border-[#d7cbb8] bg-white/70 p-6 text-sm leading-relaxed text-[#5c5549]">
+            Nothing here yet. Search <span className="font-semibold text-[#1c1914]">Maple Austin</span>{" "}
+            and press Open deal. That creates the demo duplex so you can run the numbers.
           </p>
         ) : (
           <ul className="mt-4 grid gap-3">
@@ -65,14 +67,11 @@ export default async function DealsPage({
                 <li key={deal.id}>
                   <Link
                     href={`/deals/${deal.id}`}
-                    className="flex flex-col gap-2 rounded-2xl border border-[#e2d5be] bg-white p-4 transition hover:border-[#c45c26]/50 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                    className="flex min-h-16 flex-col gap-3 rounded-2xl border border-[#e2d5be] bg-white p-4 transition hover:border-[#c45c26]/50 active:bg-[#fffaf1] sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div>
-                      <p className="font-medium text-[#1c1914]">{deal.name}</p>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-[#1c1914]">{deal.name}</p>
                       <p className="text-sm text-[#6b6358]">{address}</p>
-                      <p className="mt-1 text-[11px] font-semibold tracking-[0.12em] text-[#9a3f12] uppercase">
-                        {deal.status === "prospecting" ? "Prospecting" : deal.status.replace("_", " ")}
-                      </p>
                     </div>
                     <dl className="flex gap-6 text-sm">
                       <div>

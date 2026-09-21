@@ -1,8 +1,14 @@
 # Apex
 
-Owner-side audit and asset management for small landlords. Your rentals, audited monthly — every number sourced, every action approved.
+Find a rental deal and evaluate it. Signed-in Apex opens on **Find** (`/deals`): search an address and press **Open deal**. **Evaluate** (`/deals/<id>`) is the only next screen — price and rent inputs, finance-v1 outputs (NOI, DSCR, cash-on-cash, downside), a diligence checklist, notes, and upload.
 
-Apex reconciles property-manager statements against the owner's budget, flags fee drift / duplicate charges / unexplained fees with evidence, and drafts follow-ups that only send after owner approval. The LLM extracts, classifies, and explains — it never computes finance numbers. All NOI, DSCR, cash-on-cash, and IRR math lives in a deterministic, versioned TypeScript engine.
+The header shows Find, and Evaluate once a deal is open. Portfolio, billing, onboarding, actions, calendar, activity, owner review, ledger, and exceptions are not in the launch chrome. Those routes still respond at their URLs.
+
+Opening a deal is an HTML `POST /api/deals/open` (303 to the deal file). Do not turn that back into a Server Action: Clerk’s `auth.protect` was redirecting those POSTs to `/sign-in` before the action ran.
+
+Without `GOOGLE_MAPS_API_KEY`, search uses the mock geocoder. **Maple Austin** resolves to 421 Maple Street.
+
+The rest of this README is the existing owner-ops stack (statements, reconciliation, dossiers). The LLM extracts and classifies — it never computes finance numbers. NOI, DSCR, cash-on-cash, and IRR stay in the deterministic `finance-v1` engine.
 
 ## Stack
 
@@ -31,8 +37,8 @@ npm run build        # production build
 npm run lint         # eslint
 ```
 
-To use the app as a signed-in user (workspace switching, onboarding, billing),
-enable the dev auth provider first — see "Auth" below:
+To sign in locally and land on Find (`/deals`), enable the dev auth provider
+first — see "Auth" below:
 
 ```bash
 APEX_DEV_AUTH_ENABLED=true npm run dev   # or npm start after npm run build
@@ -63,7 +69,7 @@ node scripts/e2e-portfolio.mjs               # owner book: /portfolio map + geo 
 plus test price ids and a webhook secret. It signs webhook payloads itself, so
 no Stripe account is needed.
 
-Then open the internal pages:
+These routes still work. They are not linked from the launch header:
 
 - **`/deals`** — buyer desk: address search, deal files, calculator, capture, timeline, share.
 - **`/portfolio`** — owner/investor book: bulk ingest, MapLibre map with clusters, geo rollups by state/county/city/neighborhood.
@@ -88,7 +94,7 @@ And the public free tool on the marketing site:
 
 ### Buyer desk (Slice A)
 
-The home path after sign-in is **`/deals`**, not landlord onboarding.
+The home path after sign-in is **`/deals`** (Find). Dev sign-in and Clerk both land there. Onboarding is not the front door.
 
 1. **Discover** — `/deals` address lookup. With `GOOGLE_MAPS_API_KEY` unset (the default), lookup uses **`mock-places-v1`**: seed addresses (including the demo duplex at 421 Maple Street, Austin) plus a free-text create if nothing matches. Try typing `maple austin`.
 2. **Capture** — `/deals/<id>/capture` uploads through the existing ingest pipeline, accepts inbound email at `<workspace>+<8hex>@in.<domain>`, and stores notes. Every event is written to `deal_events`.
@@ -96,7 +102,7 @@ The home path after sign-in is **`/deals`**, not landlord onboarding.
 4. **Checklist** — generated from assumption gaps and engine risk flags (same as the dossier).
 5. **Share / export** — read-only dossier link and CPA zip.
 
-History lives at `/deals/<id>/history` (empty, loading, and error states). Owner-ops pages (review, exceptions, …) stay under **Owner ops** in the header.
+Evaluate is one page: inputs, live finance-v1 outputs, checklist, notes, and upload. Older step URLs (`/capture`, `/calculator`, `/checklist`, `/history`, `/share`) still resolve, and they are not linked from the launch header.
 
 ```bash
 APEX_DEV_AUTH_ENABLED=true npm run dev   # then open /deals
@@ -511,10 +517,11 @@ install. The **dev provider stays** for local machines without Clerk keys.
      - `https://apex-p4id98452-curiosityventures.vercel.app`
      - Production + preview origins as above
 4. Optional env (Vercel + local `.env`): `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`,
-   `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/onboarding` (and the
-   sign-up equivalents pointing at `/sign-in` / `/onboarding`).
+   `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/deals` (and the
+   sign-up equivalent pointing at `/deals`). The app also sets
+   `signInFallbackRedirectUrl="/deals"` on `ClerkProvider`.
 5. Redeploy after dashboard changes; smoke-test `/sign-in` → magic link →
-   `/onboarding` on the Vercel URL.
+   `/deals` on the Vercel URL.
 6. WorkOS alternative: same session contract via WorkOS AuthKit if we ever need SAML.
 
 ### 3. Vercel Blob (statement/PDF storage)
