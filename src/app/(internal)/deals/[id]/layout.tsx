@@ -5,8 +5,6 @@ import { formatAddress } from "@/deals/address";
 import { getDeal } from "@/lib/deals/open";
 import { getActiveWorkspace } from "@/lib/workspace";
 
-import { DealStepper } from "../deal-stepper";
-
 export const dynamic = "force-dynamic";
 
 export default async function DealLayout({
@@ -31,16 +29,20 @@ export default async function DealLayout({
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm text-[#6b6358]">
-          <Link href="/deals" className="hover:text-[#1c1914]">
-            Deals
-          </Link>{" "}
-          / {deal.status === "prospecting" ? "prospect" : deal.status.replaceAll("_", " ")}
+        <Link
+          href="/deals"
+          className="inline-flex min-h-11 items-center text-sm font-semibold text-[#9a3f12]"
+        >
+          ← Find another address
+        </Link>
+        <p className="mt-3 text-[11px] font-semibold tracking-[0.18em] text-[#9a3f12] uppercase">
+          Step 2 · Evaluate
         </p>
-        <h1 className="mt-1 font-[family-name:var(--font-heading)] text-3xl tracking-tight">{deal.name}</h1>
-        <p className="mt-1 text-sm text-[#5c5549]">{address}</p>
+        <h1 className="mt-1 font-[family-name:var(--font-heading)] text-3xl tracking-tight sm:text-4xl">
+          {deal.name}
+        </h1>
+        <p className="mt-1 text-base text-[#5c5549]">{address}</p>
       </div>
-      <DealStepper dealId={id} />
       {children}
     </div>
   );

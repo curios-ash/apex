@@ -73,8 +73,8 @@ export default async function SignInPage() {
             <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
               Signed in as <span className="font-medium">{session.email}</span>
               {" · "}
-              <Link href="/review" className="font-medium underline">
-                Continue to your review
+              <Link href="/deals" className="font-medium underline">
+                Continue to Find
               </Link>
             </p>
           ) : null}
@@ -85,10 +85,7 @@ export default async function SignInPage() {
         </div>
 
         <p className="mt-4 text-center text-sm text-stone-500">
-          Need a new workspace?{" "}
-          <Link href="/onboarding" className="font-medium text-emerald-700 underline">
-            Start onboarding
-          </Link>
+          After you sign in, you land on Find — search an address and open the deal.
         </p>
       </div>
     </div>
