@@ -21,9 +21,9 @@ const sourceSerif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "Apex — Find a deal, then evaluate it",
+  title: "Apex — Deal #1",
   description:
-    "Search an address and underwrite it. NOI, DSCR, cash-on-cash, and downside come from a deterministic finance engine.",
+    "Score a small rental against your Deal #1 line. $19 a month, cancel any time. The first address is free.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

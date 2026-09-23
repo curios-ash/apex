@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { mapSubscription } from "./webhook";
+import { isDeal1Subscription, mapDeal1Status, mapSubscription } from "./webhook";
 
 const PRICES = {
   ownerBase: "price_owner_base",
@@ -49,6 +49,33 @@ describe("mapSubscription", () => {
   it("returns null for subscriptions without Apex prices", () => {
     expect(
       mapSubscription({ status: "active", items: [{ priceId: "price_unrelated", quantity: 1 }] }, PRICES),
+    ).toBeNull();
+  });
+
+  it("recognizes the Deal #1 price without treating it as Owner", () => {
+    expect(
+      isDeal1Subscription(
+        { items: [{ priceId: "price_deal1", quantity: 1 }], product: null },
+        "price_deal1",
+      ),
+    ).toBe(true);
+    expect(
+      mapDeal1Status(
+        { status: "active", items: [{ priceId: "price_deal1", quantity: 1 }] },
+        "price_deal1",
+      ),
+    ).toBe("active");
+    expect(
+      mapSubscription(
+        { status: "active", items: [{ priceId: "price_deal1", quantity: 1 }] },
+        PRICES,
+      ),
+    ).toBeNull();
+    expect(
+      mapDeal1Status(
+        { status: "active", items: [{ priceId: "price_owner_base", quantity: 1 }] },
+        "price_deal1",
+      ),
     ).toBeNull();
   });
 

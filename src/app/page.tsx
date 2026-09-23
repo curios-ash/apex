@@ -36,38 +36,26 @@ export default async function Home() {
 
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-12 sm:px-6 sm:py-20">
         <p className="text-[11px] font-semibold tracking-[0.18em] text-[#9a3f12] uppercase">
-          For buyers
+          Deal #1
         </p>
         <h1 className="mt-3 font-[family-name:var(--font-heading)] text-4xl tracking-tight text-balance sm:text-5xl">
-          Find the address. Then see if the deal works.
+          Apex scores a small rental you already found against your Deal #1 line.
         </h1>
         <p className="mt-4 max-w-xl text-lg leading-relaxed text-[#5c5549]">
-          Apex opens on a search box. Open the listing, type the price and rent, and read NOI,
-          DSCR, cash-on-cash, and the downside — computed by the finance engine, not guessed.
+          $19 a month, cancel any time. The first address is free.
         </p>
 
-        <ol className="mt-8 grid gap-3 sm:grid-cols-2">
-          <li className="rounded-2xl border border-[#e2d5be] bg-white p-5">
-            <p className="text-[11px] font-semibold tracking-[0.16em] text-[#9a3f12] uppercase">1</p>
-            <h2 className="mt-2 text-xl font-semibold">Find</h2>
-            <p className="mt-1 text-sm leading-relaxed text-[#5c5549]">
-              Search the street. Maple Austin opens the demo duplex. One button creates the deal.
-            </p>
-          </li>
-          <li className="rounded-2xl border border-[#e2d5be] bg-white p-5">
-            <p className="text-[11px] font-semibold tracking-[0.16em] text-[#9a3f12] uppercase">2</p>
-            <h2 className="mt-2 text-xl font-semibold">Evaluate</h2>
-            <p className="mt-1 text-sm leading-relaxed text-[#5c5549]">
-              Inputs, the four returns, a checklist, your notes, and the packet — on one page.
-            </p>
-          </li>
-        </ol>
-
         <Link
-          href="/deals"
+          href="/deal-1"
           className="mt-8 inline-flex h-14 w-full items-center justify-center rounded-xl bg-[#c45c26] text-base font-semibold text-white hover:bg-[#9a3f12] sm:w-auto sm:px-10"
         >
-          Find a deal
+          Score the first address
+        </Link>
+        <Link
+          href="/deals"
+          className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-[#9a3f12]"
+        >
+          Find and evaluate an address you already opened
         </Link>
       </main>
 

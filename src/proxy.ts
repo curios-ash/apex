@@ -10,6 +10,7 @@ import { isClerkConfigured } from "@/lib/auth/configured";
 
 const INTERNAL_APP_PREFIXES = [
   "/deals",
+  "/deal-1",
   "/portfolio",
   "/upload",
   "/verify",

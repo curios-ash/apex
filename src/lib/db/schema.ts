@@ -214,6 +214,11 @@ export const workspaces = pgTable("workspaces", {
   subscriptionStatus: subscriptionStatusEnum("subscription_status").notNull().default("none"),
   // Total doors last reported to / received from Stripe (per-door pricing).
   billableDoors: integer("billable_doors"),
+  // Deal #1 ($19/month). Written only by the Stripe webhook for that price.
+  // Checkout return does not flip this, and the mock plan switcher does not either.
+  deal1SubscriptionStatus: subscriptionStatusEnum("deal1_subscription_status")
+    .notNull()
+    .default("none"),
   ...timestamps,
 });
 
@@ -865,6 +870,67 @@ export const llmCalls = pgTable(
     index("llm_calls_workspace_idx").on(t.workspaceId),
     index("llm_calls_document_idx").on(t.documentId),
     index("llm_calls_workspace_created_idx").on(t.workspaceId, t.createdAt),
+  ],
+);
+
+export const deal1Gates = pgTable("deal1_gates", {
+  workspaceId: uuid("workspace_id")
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  place: text("place").notNull(),
+  wideCeilingCents: bigint("wide_ceiling_cents", { mode: "number" }).notNull(),
+  passLineCents: bigint("pass_line_cents", { mode: "number" }).notNull(),
+  minUnits: integer("min_units").notNull(),
+  maxUnits: integer("max_units").notNull(),
+  fullyLeasedRequired: boolean("fully_leased_required").notNull(),
+  noHeavyRehabRequired: boolean("no_heavy_rehab_required").notNull(),
+  downPaymentRate: doublePrecision("down_payment_rate").notNull(),
+  annualRate: doublePrecision("annual_rate").notNull(),
+  dscrGate: doublePrecision("dscr_gate").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const deal1Checks = pgTable(
+  "deal1_checks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    address: text("address").notNull(),
+    addressNorm: text("address_norm").notNull(),
+    purchasePriceCents: bigint("purchase_price_cents", { mode: "number" }).notNull(),
+    purchasePriceSource: text("purchase_price_source").notNull(),
+    monthlyRentCents: bigint("monthly_rent_cents", { mode: "number" }).notNull(),
+    monthlyRentSource: text("monthly_rent_source").notNull(),
+    vacancyRate: doublePrecision("vacancy_rate").notNull(),
+    vacancySource: text("vacancy_source").notNull(),
+    annualOperatingExpensesCents: bigint("annual_operating_expenses_cents", { mode: "number" }).notNull(),
+    opexSource: text("opex_source").notNull(),
+    annualRate: doublePrecision("annual_rate").notNull(),
+    annualRateSource: text("annual_rate_source").notNull(),
+    units: integer("units").notNull(),
+    unitsSource: text("units_source").notNull(),
+    fullyLeased: boolean("fully_leased").notNull(),
+    fullyLeasedSource: text("fully_leased_source").notNull(),
+    heavyRehab: boolean("heavy_rehab").notNull(),
+    heavyRehabSource: text("heavy_rehab_source").notNull(),
+    noiCents: bigint("noi_cents", { mode: "number" }).notNull(),
+    dscr: doublePrecision("dscr"),
+    cashFlowCents: bigint("cash_flow_cents", { mode: "number" }).notNull(),
+    annualDebtServiceCents: bigint("annual_debt_service_cents", { mode: "number" }).notNull(),
+    pricePass: boolean("price_pass").notNull(),
+    dscrPass: boolean("dscr_pass").notNull(),
+    linePass: boolean("line_pass").notNull(),
+    passLineCents: bigint("pass_line_cents", { mode: "number" }).notNull(),
+    dscrGate: doublePrecision("dscr_gate").notNull(),
+    decision: text("decision"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("deal1_checks_workspace_address_idx").on(t.workspaceId, t.addressNorm),
+    index("deal1_checks_workspace_idx").on(t.workspaceId),
   ],
 );
 

@@ -56,6 +56,22 @@ export function mapSubscription(
   return { plan, status, doors };
 }
 
+export function isDeal1Subscription(
+  input: { items: SubscriptionItem[]; product?: string | null },
+  deal1PriceId: string | null | undefined,
+): boolean {
+  if (deal1PriceId && input.items.some((item) => item.priceId === deal1PriceId)) return true;
+  return input.product === "deal1";
+}
+
+export function mapDeal1Status(
+  input: { status?: string; items: SubscriptionItem[]; product?: string | null },
+  deal1PriceId: string | null | undefined,
+): SubscriptionStatus | null {
+  if (!isDeal1Subscription(input, deal1PriceId)) return null;
+  return STRIPE_STATUS_MAP[input.status ?? ""] ?? "none";
+}
+
 export interface StripeEvent {
   id: string;
   type: string;
@@ -101,6 +117,7 @@ export interface AppliedEvent {
 export async function applyBillingEvent(
   event: StripeEvent,
   prices: StripeConfig["prices"],
+  deal1PriceId?: string | null,
 ): Promise<AppliedEvent> {
   const object = event.data.object;
 
@@ -145,12 +162,42 @@ export async function applyBillingEvent(
     if (!workspace) return { handled: false, detail: "subscription for unknown workspace" };
 
     const deleted = event.type === "customer.subscription.deleted";
+    const items = subscriptionItems(object);
+    const product =
+      ((object.metadata as Record<string, unknown> | undefined)?.product as string | undefined) ?? null;
+    const deal1Status = mapDeal1Status(
+      { status: deleted ? "canceled" : (object.status as string | undefined), items, product },
+      deal1PriceId,
+    );
+    if (deal1Status) {
+      await db
+        .update(workspaces)
+        .set({
+          deal1SubscriptionStatus: deal1Status,
+          stripeCustomerId: customerId ?? workspace.stripeCustomerId,
+          stripeSubscriptionId: subscriptionId ?? workspace.stripeSubscriptionId,
+          updatedAt: new Date(),
+        })
+        .where(eq(workspaces.id, workspace.id));
+      await writeAuditLog({
+        workspaceId: workspace.id,
+        actorType: "system",
+        action: deleted ? "billing.deal1.canceled" : "billing.deal1.synced",
+        targetType: "workspace",
+        targetId: workspace.id,
+        metadata: {
+          eventId: event.id,
+          eventType: event.type,
+          status: deal1Status,
+          subscriptionId,
+        },
+      });
+      return { handled: true, workspaceId: workspace.id, detail: "deal1" };
+    }
+
     const mapped = deleted
       ? { plan: "free" as PlanId, status: "canceled" as SubscriptionStatus, doors: null }
-      : mapSubscription(
-          { status: object.status as string | undefined, items: subscriptionItems(object) },
-          prices,
-        );
+      : mapSubscription({ status: object.status as string | undefined, items }, prices);
     if (!mapped) return { handled: false, detail: "subscription has no Apex prices" };
 
     await db

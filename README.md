@@ -331,6 +331,28 @@ HMAC-SHA256 scheme (`src/lib/billing/stripe.ts`, ~100 lines, unit-tested).
    `scripts/e2e-onboarding.mjs` (it signs payloads itself — no Stripe account
    needed).
 
+### Deal #1 card ($19)
+
+`/deal-1` is one price: **$19/month**, cancel any time. The first scored
+address is free. A second address stays locked until the Deal #1 subscription
+is `active` or `trialing`.
+
+That status is written only by the Stripe webhook. Returning from Checkout
+does not mark the workspace subscribed. The mock plan switcher on `/billing`
+does not either. With `STRIPE_ENABLED` unset, the screen shows the price and
+what is blocked, and it will not pretend the plan is active.
+
+To take a real card, set:
+
+- `STRIPE_ENABLED=true`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET` (same `/api/billing/webhook` endpoint)
+- `STRIPE_PRICE_DEAL1` — one monthly recurring USD price for $19
+
+Owner and portfolio price ids are not required for this checkout. Apply
+migration `0008_deal1_screen` (`npm run db:migrate`) so gates and scores
+persist per workspace.
+
 ## Inbound email (provider setup)
 
 Each workspace gets an alias `<slug>@in.<domain>` (the demo workspace is
