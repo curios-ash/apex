@@ -30,11 +30,15 @@ export function AppChrome({
   const dealId = dealIdFromPath(pathname);
   const onFind = pathname === "/deals";
   const onEvaluate = Boolean(dealId);
+  const onDeal1 = pathname === "/deal-1";
 
   const findClass = onFind
     ? "bg-[#1c1914] text-[#f4e6c8]"
     : "text-[#1c1914] hover:bg-[#1c1914]/5";
   const evaluateClass = onEvaluate
+    ? "bg-[#1c1914] text-[#f4e6c8]"
+    : "text-[#1c1914] hover:bg-[#1c1914]/5";
+  const deal1Class = onDeal1
     ? "bg-[#1c1914] text-[#f4e6c8]"
     : "text-[#1c1914] hover:bg-[#1c1914]/5";
 
@@ -68,6 +72,13 @@ export function AppChrome({
               Evaluate
             </Link>
           ) : null}
+          <Link
+            href="/deal-1"
+            className={`inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold ${deal1Class}`}
+            aria-current={onDeal1 ? "page" : undefined}
+          >
+            Deal #1
+          </Link>
         </nav>
 
         <div className="flex items-center gap-2">
@@ -112,6 +123,13 @@ export function AppChrome({
             className="flex min-h-14 items-center rounded-xl px-3 text-base font-semibold text-[#1c1914]"
           >
             Find a deal
+          </Link>
+          <Link
+            href="/deal-1"
+            onClick={() => setOpen(false)}
+            className="flex min-h-14 items-center rounded-xl px-3 text-base font-semibold text-[#1c1914]"
+          >
+            Deal #1
           </Link>
           {dealId ? (
             <Link

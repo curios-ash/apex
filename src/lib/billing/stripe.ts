@@ -94,14 +94,72 @@ export async function createCheckoutSession(input: {
   return postForm<StripeSession>("/checkout/sessions", config.secretKey, params);
 }
 
+export function stripeSecretKey(): string | null {
+  const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
+  return secretKey ? secretKey : null;
+}
+
+export function deal1PriceId(): string | null {
+  const priceId = process.env.STRIPE_PRICE_DEAL1?.trim();
+  return priceId ? priceId : null;
+}
+
+// Live Deal #1 checkout needs the flag, the secret, and one $19/month price id.
+// Owner/portfolio price ids are not required for this path.
+export function deal1CheckoutConfig(): { secretKey: string; priceId: string } | null {
+  if (!isStripeEnabled()) return null;
+  const secretKey = stripeSecretKey();
+  const priceId = deal1PriceId();
+  if (!secretKey || !priceId) return null;
+  return { secretKey, priceId };
+}
+
+// Single line item. Does not grant access by itself — the webhook does,
+// after Stripe reports the subscription active.
+export async function createDeal1CheckoutSession(input: {
+  secretKey: string;
+  priceId: string;
+  workspaceId: string;
+  customerId: string | null;
+  successUrl: string;
+  cancelUrl: string;
+}): Promise<StripeSession> {
+  const params: Record<string, string> = {
+    mode: "subscription",
+    success_url: input.successUrl,
+    cancel_url: input.cancelUrl,
+    client_reference_id: input.workspaceId,
+    "line_items[0][price]": input.priceId,
+    "line_items[0][quantity]": "1",
+    "metadata[workspace_id]": input.workspaceId,
+    "metadata[product]": "deal1",
+    "subscription_data[metadata][workspace_id]": input.workspaceId,
+    "subscription_data[metadata][product]": "deal1",
+  };
+  if (input.customerId) params.customer = input.customerId;
+  return postForm<StripeSession>("/checkout/sessions", input.secretKey, params);
+}
+
+export async function createPortalSessionWithKey(input: {
+  secretKey: string;
+  customerId: string;
+  returnUrl: string;
+}): Promise<StripeSession> {
+  return postForm<StripeSession>("/billing_portal/sessions", input.secretKey, {
+    customer: input.customerId,
+    return_url: input.returnUrl,
+  });
+}
+
 export async function createPortalSession(input: {
   config: StripeConfig;
   customerId: string;
   returnUrl: string;
 }): Promise<StripeSession> {
-  return postForm<StripeSession>("/billing_portal/sessions", input.config.secretKey, {
-    customer: input.customerId,
-    return_url: input.returnUrl,
+  return createPortalSessionWithKey({
+    secretKey: input.config.secretKey,
+    customerId: input.customerId,
+    returnUrl: input.returnUrl,
   });
 }
 

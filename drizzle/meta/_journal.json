@@ -57,6 +57,13 @@
       "when": 1789679634704,
       "tag": "0007_portfolio_map",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789685000000,
+      "tag": "0008_deal1_screen",
+      "breakpoints": true
     }
   ]
 }
